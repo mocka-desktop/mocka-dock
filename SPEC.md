@@ -1,6 +1,6 @@
 # Mocka Dock Specification
 
-Status: draft 1
+Status: draft 2
 Component: `mocka-dock`
 License: BSD-3-Clause
 
@@ -43,11 +43,14 @@ Platform: X11, FreeBSD first. Wayland is out of scope.
   on vertical panels.
 - The dock sizes itself to the space the panel gives it and adapts when
   applets are added, removed, or moved.
-- When there is not enough space for all buttons, the dock scrolls: hovering
-  the first or last button shows an arrow and scrolls in that direction.
+- When there is not enough space for all buttons, a small arrow button
+  appears at each end of the app section. Clicking an arrow scrolls in that
+  direction. Hovering never scrolls, so hover only ever means thumbnails, and
+  the mouse wheel stays reserved for window cycling (section 7).
 - Spacing between buttons is configurable.
 - More than one dock may be added to the same or different panels. All docks
-  share one list of pinned apps.
+  share one list of pinned apps, and every dock shows every running app, so
+  all docks show the same apps in the same order.
 
 ## 4. Layout
 
@@ -75,6 +78,19 @@ panel's orientation.
 - By default, the dock shows windows from the current workspace only. A
   setting allows showing windows from all workspaces.
 
+### Current workspace mode
+
+When the dock shows the current workspace only:
+
+- An unpinned app whose windows are all on other workspaces has no button.
+- A pinned app whose windows are all on other workspaces shows as not running
+  (no indicator). Clicking it, or using its keyboard shortcut, switches to the
+  workspace of its most recently active window and activates that window
+  instead of launching a second instance. Middle click and Shift + left click
+  still launch a new instance.
+- Window counts, thumbnails, cycling, and "Close all windows" consider only
+  the windows the dock is showing.
+
 ## 6. Identifying apps
 
 Each window is assigned to an app by trying these in order, stopping at the
@@ -87,7 +103,8 @@ first match:
    (case-insensitive).
 4. The startup notification ID, for windows of apps the dock launched itself.
 5. Fallback: windows with the same class name are grouped together and shown
-   with the window's own icon and title.
+   with the window's own icon and title. These apps have no desktop entry ID,
+   so they cannot be pinned (section 9.1).
 
 Requirements:
 
@@ -117,15 +134,18 @@ Requirements:
 |---|---|
 | Middle click | Launch a new instance |
 | Shift + left click | Launch a new instance |
-| Ctrl + left click | Activate the app's next window in turn, without thumbnails |
+| Ctrl + left click | Activate the app's next window in turn, including minimized windows, without thumbnails |
 | Mouse wheel over a button | Activate the app's next or previous window, including minimized windows |
 | Right click on a button | App menu (section 9.1) |
 | Shift + right click on a button | Window menu (section 9.2) |
 | Ctrl + right click anywhere on the dock | Dock menu (section 9.3) |
 | Right click on empty dock space | Dock menu (section 9.3) |
 
-Actions that need a running app do nothing when the app is not running,
-except Shift + right click, which then shows the app menu.
+When the app is not running:
+
+- Ctrl + left click launches it, like a plain left click.
+- Shift + right click shows the app menu.
+- The mouse wheel does nothing.
 
 ### Launch feedback
 
@@ -151,8 +171,10 @@ appears, or until a timeout of 15 seconds.
 - Each thumbnail shows the window's contents, scaled down, with the window
   title below it. Long titles are shortened with an ellipsis.
 - Each thumbnail has a close button, visible when the pointer is over it.
-- For a minimized window, the thumbnail shows the last image captured before
-  it was minimized. If there is none, it shows the app icon.
+- For a minimized window, the thumbnail shows the last image captured of it.
+  Besides captures while the popup is showing, the dock takes one snapshot
+  when a window loses focus, and one right before the dock itself minimizes a
+  window. If there is still no image, the thumbnail shows the app icon.
 - The popup is placed next to the button, on the side facing the screen, and
   stays within the monitor that contains the button.
 - The popup uses the panel's colors.
@@ -166,8 +188,12 @@ appears, or until a timeout of 15 seconds.
 
 ### Requirements
 
-- Thumbnails work with any window manager, with or without a compositor.
-- Thumbnails are captured and updated only while the popup is showing.
+- Live thumbnails require a running compositor. Marco's built-in compositor
+  is enough, and thumbnails work with any window manager that has one.
+- Without a compositor, the popup shows each window's icon and title in place
+  of its contents. All thumbnail actions still work.
+- Thumbnails are updated live only while the popup is showing. The only other
+  captures are the two snapshots described under Content.
 
 ## 9. Menus
 
@@ -180,9 +206,11 @@ From top to bottom:
 1. The actions listed in the app's desktop entry, all of them.
 2. Recent files for this app, if there are any.
 3. The app's name, which launches a new instance.
-4. Pin to dock, or Unpin from dock.
+4. Pin to dock, or Unpin from dock. Not shown for apps without a desktop
+   entry (section 6, step 5).
 5. Close window, or Close all windows when the app has several windows. Not
-   shown when the app is not running.
+   shown when the app is not running. Only closes the windows the dock is
+   showing (section 5).
 
 ### 9.2 Window menu (Shift + right click)
 
@@ -204,6 +232,9 @@ reflect the window's current state and what the window allows.
 - Pin to dock, from the right-click menu of an app in Mocka Menu.
 - Dragging an app from a menu, the desktop, or the file manager onto the dock.
   It is inserted where it is dropped.
+- A dropped `.desktop` file from outside the applications folders has no
+  desktop entry ID. The dock copies it into `~/.local/share/applications` and
+  pins the copy.
 
 ### Reordering
 
@@ -240,6 +271,11 @@ For the app at that position:
 - Several windows: activate the next window in turn on each press.
 
 If a shortcut is already taken by another program, the dock works without it.
+
+With several docks, the first dock that successfully grabs the keys owns them.
+Every dock shows the same apps in the same order (section 3), so positions
+are the same whichever dock owns the shortcuts. When the owning dock is
+removed, another dock takes over the grab.
 
 ## 12. Appearance and status
 
@@ -317,7 +353,9 @@ menu. Changes apply immediately.
 - Zero CPU use when nothing on the desktop changes.
 - The desktop entry list and window-to-app matches are cached.
 - Icons are cached per size.
-- Thumbnails are captured only while the thumbnail popup is showing.
+- Thumbnails are updated live only while the thumbnail popup is showing.
+  Outside of that, the only captures are one snapshot when a window loses
+  focus and one before the dock minimizes a window (section 8).
 - No interpreter runs in the applet process.
 
 ## 18. Dependencies and exclusions
@@ -341,9 +379,18 @@ BAMF, Keybinder, libunity, GVfs, or Python.
 - Pinning apps to a specific workspace.
 - Trash folders on other mounted volumes.
 - A styled right-click popup in place of the standard menu.
+- Live thumbnails without a compositor. The dock would redirect windows itself
+  with automatic Composite redirection. The Composite protocol allows only one
+  client to hold manual redirection of a window, but any number of clients
+  may use automatic redirection alongside it, so this mode would not clash
+  with a compositor that starts later.
+- A setting to show only apps with windows on the dock's own monitor.
 
-## 21. Open questions
+## 21. Decisions
 
-- Default for `show-all-workspaces`: current workspace only (as proposed) or
-  all workspaces.
+- `show-all-workspaces` defaults to false (current workspace only), matching
+  MATE's window list.
+
+## 22. Open questions
+
 - GhostBSD's default `pinned-apps` set.
