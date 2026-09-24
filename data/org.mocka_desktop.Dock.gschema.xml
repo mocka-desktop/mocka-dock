@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SPDX-License-Identifier: BSD-3-Clause
+
+  Copyright (c) 2026 The Mocka Desktop Project
+-->
+<schemalist gettext-domain="mocka-dock">
+
+  <enum id="org.mocka_desktop.Dock.IndicatorStyle">
+    <value nick="bar" value="0"/>
+    <value nick="dots" value="1"/>
+    <value nick="none" value="2"/>
+  </enum>
+
+  <!-- Shared by all docks and other Mocka components (SPEC section 16). -->
+  <schema id="org.mocka_desktop.Dock" path="/org/mocka-desktop/dock/">
+    <key name="pinned-apps" type="as">
+      <!-- GhostBSD's default set is chosen in M2. -->
+      <default>[]</default>
+      <summary>Pinned applications</summary>
+      <description>Ordered list of desktop entry IDs kept in the dock.</description>
+    </key>
+  </schema>
+
+  <!-- Per dock, relocated under each applet's preferences path. -->
+  <schema id="org.mocka_desktop.Dock.Instance">
+    <key name="indicator-style" enum="org.mocka_desktop.Dock.IndicatorStyle">
+      <default>'bar'</default>
+      <summary>Running indicator style</summary>
+      <description>How running applications are marked: bar, dots, or none.</description>
+    </key>
+    <key name="indicator-per-window" type="b">
+      <default>false</default>
+      <summary>One indicator mark per window</summary>
+      <description>Show one mark per open window, up to three.</description>
+    </key>
+    <key name="icon-spacing" type="i">
+      <range min="0" max="32"/>
+      <default>0</default>
+      <summary>Icon spacing</summary>
+      <description>Extra space between buttons, in pixels.</description>
+    </key>
+    <key name="show-all-workspaces" type="b">
+      <default>false</default>
+      <summary>Show windows from all workspaces</summary>
+      <description>When false, only windows on the current workspace are shown.</description>
+    </key>
+    <key name="show-trash" type="b">
+      <default>false</default>
+      <summary>Show the trash</summary>
+      <description>Show the trash at the end of the dock.</description>
+    </key>
+    <key name="show-menu-button" type="b">
+      <default>false</default>
+      <summary>Show the menu button</summary>
+      <description>Show the Mocka Menu button at the start of the dock.</description>
+    </key>
+  </schema>
+
+</schemalist>

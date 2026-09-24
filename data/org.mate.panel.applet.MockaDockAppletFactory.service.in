@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.mate.panel.applet.MockaDockAppletFactory
+Exec=@LIBEXECDIR@/mocka-dock-applet

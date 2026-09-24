@@ -53,3 +53,9 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# Meson build directory
+/build/
+
+# IDE files
+/.idea/

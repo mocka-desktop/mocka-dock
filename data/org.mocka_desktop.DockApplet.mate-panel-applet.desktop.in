@@ -1,0 +1,11 @@
+[Applet Factory]
+Id=MockaDockAppletFactory
+Location=@LIBEXECDIR@/mocka-dock-applet
+Name=Mocka Dock Factory
+Description=Factory for Mocka Dock
+
+[MockaDockApplet]
+Name=Mocka Dock
+Description=Pinned and running applications
+# Translators: Do NOT translate or transliterate this text (this is an icon file name)!
+Icon=user-desktop

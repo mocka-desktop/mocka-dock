@@ -5,7 +5,7 @@ order. Tick items as they are completed.
 
 ## Dependencies
 
-`gtk+-3.0`, `libmate-panel-applet-4`, `libwnck-3.0`, `gio-unix-2.0`, `x11`,
+`gtk+-3.0`, `libmatepanelapplet-4.0`, `libwnck-3.0`, `gio-unix-2.0`, `x11`,
 `xcomposite`, `xdamage`, `cairo-xlib`.
 
 ## Module layout
@@ -35,9 +35,9 @@ does not take the panel down with it.
 
 ## M0: Skeleton and risk checks
 
-- [ ] Meson build, `data/` files, both schemas
-- [ ] gettext setup from the start: `po/` directory, all user-visible strings wrapped in `_()`
-- [ ] Minimal out-of-process applet that appears in "Add to Panel" as Mocka Dock
+- [x] Meson build, `data/` files, both schemas
+- [x] gettext setup from the start: `po/` directory, all user-visible strings wrapped in `_()`
+- [x] Minimal out-of-process applet that appears in "Add to Panel" as Mocka Dock
 - [ ] Verify right click on a button is consumed and Ctrl + right click reaches the panel's applet menu
 - [ ] Verify Shift + right click can show a `WnckActionMenu`
 - [ ] Verify one window can be captured through Composite from the applet process with marco's compositor on, and that a missing compositor can be detected
