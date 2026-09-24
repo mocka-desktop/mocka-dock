@@ -6,3 +6,9 @@ test_matcher = executable('test-matcher',
   ],
 )
 test('matcher', test_matcher)
+
+test_dock_model = executable('test-dock-model',
+  'test-dock-model.c',
+  dependencies: core_dep,
+)
+test('dock-model', test_dock_model)

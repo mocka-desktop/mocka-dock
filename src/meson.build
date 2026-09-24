@@ -2,6 +2,7 @@
 core_lib = static_library('mocka-dock-core',
   'app-index.c',
   'matcher.c',
+  'dock-model.c',
   include_directories: config_inc,
   dependencies: [gio_dep],
 )
@@ -15,6 +16,7 @@ core_dep = declare_dependency(
 executable('mocka-dock-applet',
   'mocka-dock-applet.c',
   'probe.c',
+  'window-tracker.c',
   include_directories: config_inc,
   dependencies: [core_dep, gtk_dep, applet_dep, wnck_dep, x11_dep, cairo_xlib_dep],
   install: true,

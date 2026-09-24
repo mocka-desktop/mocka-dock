@@ -50,9 +50,9 @@ does not take the panel down with it.
 ## M1: Core taskbar
 
 - [x] App index and matcher, with unit tests against `docs/test-data/`
-- [ ] Rematch a window when its class changes
-- [ ] Window tracker and dock model for running apps, grouped per app, unpinned apps in start order
-- [ ] Skip-taskbar windows are not shown
+- [x] Rematch a window when its class changes
+- [x] Window tracker and dock model for running apps, grouped per app, unpinned apps in start order
+- [x] Skip-taskbar windows are not shown
 - [ ] Horizontal and vertical panels, following orientation and size changes
 - [ ] Buttons with icons, following icon theme changes and HiDPI
 - [ ] Left click behavior, with a plain window list for several windows
