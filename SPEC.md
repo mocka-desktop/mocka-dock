@@ -1,6 +1,6 @@
 # Mocka Dock Specification
 
-Status: draft 3
+Status: draft 4
 Component: `mocka-dock`
 License: BSD-3-Clause
 
@@ -309,6 +309,13 @@ removed, another dock takes over the grab.
 
 - The button of the app with the focused window is highlighted with the
   theme's highlight color.
+
+### Minimize animation
+
+- The dock sets each shown window's icon geometry to its app's button (EWMH
+  `_NET_WM_ICON_GEOMETRY`), and updates it when the button moves or changes
+  size. The window manager's minimize and restore animations then go to and
+  from the button. The dock draws no animation of its own.
 
 ### Attention
 
