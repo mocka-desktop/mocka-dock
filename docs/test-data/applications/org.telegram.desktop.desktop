@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Telegram
+Exec=Telegram -- %U
+Icon=org.telegram.desktop
+StartupWMClass=TelegramDesktop
+Type=Application

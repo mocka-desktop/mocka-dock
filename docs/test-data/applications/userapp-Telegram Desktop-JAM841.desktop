@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+NoDisplay=true
+Exec=telegram-desktop -workdir /home/user/.local/share/TelegramDesktop/ -- %u
+Name=Telegram Desktop

@@ -1,0 +1,5 @@
+# expect: caja-browser.desktop
+WM_CLASS = "caja", "Caja"
+_NET_STARTUP_ID:  not found.
+WM_WINDOW_ROLE:  not found.
+_NET_WM_WINDOW_TYPE = _NET_WM_WINDOW_TYPE_NORMAL

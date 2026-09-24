@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Caja
+Exec=/usr/local/bin/caja
+Icon=system-file-manager
+Type=Application
+NoDisplay=true

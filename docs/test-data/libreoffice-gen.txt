@@ -1,0 +1,6 @@
+# expect: libreoffice-writer.desktop
+WM_CLASS = "libreoffice", "libreoffice-writer"
+_NET_STARTUP_ID:  not found.
+WM_WINDOW_ROLE:  not found.
+_NET_WM_WINDOW_TYPE = _NET_WM_WINDOW_TYPE_NORMAL
+leader _NET_STARTUP_ID:  not found.

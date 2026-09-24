@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Code - OSS
+Exec=/usr/local/bin/code-oss %F
+Icon=com.visualstudio.code.oss
+Type=Application
+StartupWMClass=Code - OSS

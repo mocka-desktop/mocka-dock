@@ -1,0 +1,5 @@
+# expect: firefox.desktop
+WM_CLASS = "Navigator", "firefox"
+_NET_STARTUP_ID = "host_TIME1497266740"
+WM_WINDOW_ROLE = "browser"
+_NET_WM_WINDOW_TYPE = _NET_WM_WINDOW_TYPE_NORMAL

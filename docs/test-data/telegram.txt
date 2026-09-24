@@ -1,0 +1,5 @@
+# expect: org.telegram.desktop.desktop
+WM_CLASS = "Telegram", "TelegramDesktop"
+_NET_STARTUP_ID:  not found.
+WM_WINDOW_ROLE:  not found.
+_NET_WM_WINDOW_TYPE = _KDE_NET_WM_WINDOW_TYPE_OVERRIDE, _NET_WM_WINDOW_TYPE_NORMAL

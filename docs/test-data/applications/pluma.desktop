@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Pluma
+Exec=pluma %U
+Type=Application
+Icon=accessories-text-editor

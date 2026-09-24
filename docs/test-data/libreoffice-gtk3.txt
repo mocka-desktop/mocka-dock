@@ -1,0 +1,6 @@
+# expect: none
+WM_CLASS = "soffice", "Soffice"
+_NET_STARTUP_ID:  not found.
+WM_WINDOW_ROLE:  not found.
+_NET_WM_WINDOW_TYPE = _NET_WM_WINDOW_TYPE_NORMAL
+leader _NET_STARTUP_ID = "brisk-menu-4404-host-libreoffice-4_TIME18177813"

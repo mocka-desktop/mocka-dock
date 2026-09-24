@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Control Center
+Icon=preferences-desktop
+Exec=mate-control-center
+Type=Application

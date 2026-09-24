@@ -38,14 +38,14 @@ does not take the panel down with it.
 - [x] Meson build, `data/` files, both schemas
 - [x] gettext setup from the start: `po/` directory, all user-visible strings wrapped in `_()`
 - [x] Minimal out-of-process applet that appears in "Add to Panel" as Mocka Dock
-- [ ] Verify right click on a button is consumed and Ctrl + right click reaches the panel's applet menu
-- [ ] Verify Shift + right click can show a `WnckActionMenu`
-- [ ] Verify one window can be captured through Composite from the applet process with marco's compositor on, and that a missing compositor can be detected
-- [ ] Verify Super + number can be grabbed alongside marco and the Super key menu shortcut, with NumLock and CapsLock on or off
-- [ ] `docs/test-data/` with `xprop WM_CLASS` output for Firefox, Chromium plus a web app, LibreOffice, Caja, a terminal, an Electron app, a Wine app, a Java app, and a Qt app
-- [ ] `docs/test-data/` also covers a window that changes its class after mapping (LibreOffice) and a GTK app launched with startup notification
-- [ ] Port skeleton in the GhostBSD ports overlay
-- [ ] Manual test by maintainer
+- [x] Verify right click on a button is consumed and Ctrl + right click reaches the panel's applet menu
+- [x] Verify Shift + right click can show a `WnckActionMenu`
+- [x] Verify one window can be captured through Composite from the applet process with marco's compositor on, and that a missing compositor can be detected
+- [x] Verify Super + number can be grabbed alongside marco and the Super key menu shortcut, with NumLock and CapsLock on or off
+- [x] `docs/test-data/` with `xprop WM_CLASS` output for Firefox, Chromium plus a web app, LibreOffice, Caja, a terminal, an Electron app, a Wine app, a Java app, and a Qt app
+- [x] `docs/test-data/` also covers a window that changes its class after mapping (LibreOffice) and a GTK app launched with startup notification. No recorded app changed its class (LibreOffice with GTK3 keeps `soffice`), so M1 tests rematching with made-up class changes
+- [x] Port skeleton in the GhostBSD ports overlay
+- [x] Manual test by maintainer
 
 ## M1: Core taskbar
 
@@ -65,7 +65,7 @@ does not take the panel down with it.
 
 - [ ] `pinned-apps` storage and live updates
 - [ ] Pinned apps that are not running, launching them
-- [ ] Startup notification ID matching (SPEC section 6, step 4)
+- [ ] Startup notification ID matching (SPEC section 6, step 5)
 - [ ] Pinned app with windows only on other workspaces: click switches to its window (SPEC section 5)
 - [ ] Pin and unpin from the app menu, undo popup
 - [ ] Drag to reorder, drag to pin, dropped `.desktop` files copied to the user's applications folder, with unit tests for the copy
@@ -95,7 +95,7 @@ does not take the panel down with it.
 
 ## M5: Remaining core features
 
-- [ ] Super + number shortcuts, with unit tests for mapping a shortcut to a dock position
+- [ ] Super + number shortcuts, with unit tests for mapping a shortcut to a dock position. Also accept synthetic Super + number presses on the root window: a menu bound to Super alone (Brisk Menu) holds the keyboard while Super is down and re-sends other keys that way (found in M0)
 - [ ] Shortcut ownership across docks: the owner holds an X manager selection, other docks watch it and take over when the owner goes away
 - [ ] Mouse wheel and Ctrl + click window cycling, Ctrl + click launching an app that is not running
 - [ ] Attention badge

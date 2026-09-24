@@ -1,0 +1,6 @@
+# expect: pluma.desktop
+WM_CLASS = "pluma", "Pluma"
+_NET_STARTUP_ID:  not found.
+WM_WINDOW_ROLE = "pluma-window-1790246380520593-0-host"
+_NET_WM_WINDOW_TYPE = _NET_WM_WINDOW_TYPE_NORMAL
+leader _NET_STARTUP_ID = "gtk-launch-27860-host-pluma-0_TIME0"

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Home Folder
+TryExec=/usr/local/bin/caja
+Exec=/usr/local/bin/caja --no-desktop
+Icon=user-home
+Type=Application
+NoDisplay=true

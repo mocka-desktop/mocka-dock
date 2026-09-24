@@ -1,0 +1,5 @@
+# expect: chrome-cinhimbnkkaeohfgghhklpknlkffjgod-Default.desktop
+WM_CLASS = "crx_cinhimbnkkaeohfgghhklpknlkffjgod", "Chromium-browser"
+_NET_STARTUP_ID:  not found.
+WM_WINDOW_ROLE = "pop-up"
+_NET_WM_WINDOW_TYPE = _NET_WM_WINDOW_TYPE_NORMAL

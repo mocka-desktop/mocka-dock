@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=YouTube Music
+Exec=/usr/local/share/chromium/chrome --profile-directory=Default --app-id=cinhimbnkkaeohfgghhklpknlkffjgod
+Icon=chrome-cinhimbnkkaeohfgghhklpknlkffjgod-Default
+StartupWMClass=crx_cinhimbnkkaeohfgghhklpknlkffjgod

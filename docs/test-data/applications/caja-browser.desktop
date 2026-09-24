@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Caja
+TryExec=/usr/local/bin/caja
+Exec=/usr/local/bin/caja --no-desktop --browser %U
+Icon=system-file-manager
+Type=Application

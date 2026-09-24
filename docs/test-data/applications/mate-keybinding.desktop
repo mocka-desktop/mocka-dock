@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Keyboard Shortcuts
+Exec=mate-keybinding-properties
+Icon=preferences-desktop-keyboard-shortcuts
+Type=Application

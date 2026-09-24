@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Mouse
+Exec=mate-mouse-properties
+Icon=input-mouse
+Type=Application

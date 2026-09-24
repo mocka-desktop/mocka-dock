@@ -29,7 +29,7 @@ add_project_arguments(
 
 gtk_dep = dependency('gtk+-3.0', version: '>= 3.22')
 applet_dep = dependency('libmatepanelapplet-4.0', version: '>= 1.26')
-wnck_dep = dependency('libwnck-3.0')
+wnck_dep = dependency('libwnck-3.0', version: '>= 40')
 gio_dep = dependency('gio-unix-2.0')
 x11_dep = dependency('x11')
 xcomposite_dep = dependency('xcomposite')

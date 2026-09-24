@@ -1,0 +1,5 @@
+# expect: code-oss.desktop
+WM_CLASS = "code-oss", "code-oss"
+_NET_STARTUP_ID:  not found.
+WM_WINDOW_ROLE = "browser-window"
+_NET_WM_WINDOW_TYPE = _NET_WM_WINDOW_TYPE_NORMAL

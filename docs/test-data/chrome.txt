@@ -1,0 +1,5 @@
+# expect: chromium-browser.desktop
+WM_CLASS = "chromium-browser", "Chromium-browser"
+_NET_STARTUP_ID = "brisk-menu-4404-host-chrome-2_TIME7258003"
+WM_WINDOW_ROLE = "browser"
+_NET_WM_WINDOW_TYPE = _NET_WM_WINDOW_TYPE_NORMAL

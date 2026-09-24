@@ -1,0 +1,6 @@
+# expect: mate-keyboard.desktop
+WM_CLASS = "mate-keyboard-properties", "Mate-keyboard-properties"
+_NET_STARTUP_ID:  not found.
+WM_WINDOW_ROLE:  not found.
+_NET_WM_WINDOW_TYPE = _NET_WM_WINDOW_TYPE_DIALOG
+leader _NET_STARTUP_ID = "gtk-launch-30388-host-mate-keyboard-properties-0_TIME0"
