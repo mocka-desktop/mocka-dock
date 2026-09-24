@@ -47,6 +47,7 @@ config_inc = include_directories('.')
 
 subdir('data')
 subdir('src')
+subdir('tests')
 subdir('po')
 
 gnome.post_install(glib_compile_schemas: true)

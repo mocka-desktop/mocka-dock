@@ -49,7 +49,7 @@ does not take the panel down with it.
 
 ## M1: Core taskbar
 
-- [ ] App index and matcher, with unit tests against `docs/test-data/`
+- [x] App index and matcher, with unit tests against `docs/test-data/`
 - [ ] Rematch a window when its class changes
 - [ ] Window tracker and dock model for running apps, grouped per app, unpinned apps in start order
 - [ ] Skip-taskbar windows are not shown
