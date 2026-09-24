@@ -1,6 +1,6 @@
 # Mocka Dock Specification
 
-Status: draft 2
+Status: draft 3
 Component: `mocka-dock`
 License: BSD-3-Clause
 
@@ -101,10 +101,26 @@ first match:
 2. The window's WM_CLASS class name against `StartupWMClass`.
 3. The instance name, then the class name, against desktop entry IDs
    (case-insensitive).
-4. The startup notification ID, for windows of apps the dock launched itself.
-5. Fallback: windows with the same class name are grouped together and shown
+4. The instance name, then the class name, against the program each desktop
+   entry runs (case-insensitive). The program is the file name, without its
+   directory, of `TryExec`, or of the first word of `Exec` when there is no
+   `TryExec`.
+5. The startup notification ID, for windows of apps the dock launched itself.
+   The ID is read from the window, or from its client leader window
+   (`WM_CLIENT_LEADER`), where GTK apps set it.
+6. Fallback: windows with the same class name are grouped together and shown
    with the window's own icon and title. These apps have no desktop entry ID,
    so they cannot be pinned (section 9.1).
+
+Steps 1 to 4 are first tried against visible desktop entries only. Only when
+none of them matches are they tried again against hidden entries
+(`NoDisplay=true`). A hidden entry therefore never wins over a visible one.
+For example, a Caja window (`caja`) matches the visible `caja-browser.desktop`
+through step 4, not the hidden `caja.desktop` through step 3.
+
+When several entries match in the same step, the dock prefers the entry whose
+`Exec` has no arguments besides field codes such as `%U`, then the entry whose
+ID comes first alphabetically.
 
 Requirements:
 
@@ -112,6 +128,10 @@ Requirements:
   for web apps from Chromium-based browsers (Chrome, Chromium, Brave, and
   others), which share the browser's class but have their own instance name
   matching their desktop entry.
+- Step 4 is required for desktop entries whose ID differs from the program
+  they run and that have no `StartupWMClass`. MATE ships several, for example
+  `matecc.desktop` (`mate-control-center`) and `mate-keyboard.desktop`
+  (`mate-keyboard-properties`).
 - If a window changes its class after appearing, it is matched again.
 - The list of desktop entries is read once, cached, and refreshed only when
   installed applications change.
@@ -207,7 +227,7 @@ From top to bottom:
 2. Recent files for this app, if there are any.
 3. The app's name, which launches a new instance.
 4. Pin to dock, or Unpin from dock. Not shown for apps without a desktop
-   entry (section 6, step 5).
+   entry (section 6, step 6).
 5. Close window, or Close all windows when the app has several windows. Not
    shown when the app is not running. Only closes the windows the dock is
    showing (section 5).
