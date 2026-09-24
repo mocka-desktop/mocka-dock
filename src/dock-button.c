@@ -27,6 +27,7 @@ struct _MockaDockButton
   gint size;
   GtkPositionType popup_side;  /* side of the button that faces the screen */
   WnckWindow *icon_window;     /* fallback apps: window whose icon is shown */
+  GdkRectangle geometry;       /* last icon geometry set, in screen pixels */
 };
 
 G_DEFINE_TYPE (MockaDockButton, mocka_dock_button, GTK_TYPE_BUTTON)
@@ -96,12 +97,69 @@ set_icon_window (MockaDockButton *self,
   update_fallback_icon (self);
 }
 
+/*
+ * Tells the window manager where the button is, so minimize and restore
+ * animations go to and from it (SPEC section 12). With force unset, nothing
+ * is sent when the button has not moved.
+ */
+static void
+update_icon_geometry (MockaDockButton *self,
+                      gboolean         force)
+{
+  GtkWidget *widget = GTK_WIDGET (self);
+  GtkWidget *toplevel = gtk_widget_get_toplevel (widget);
+  GPtrArray *windows = mocka_dock_app_get_windows (self->app);
+  GtkAllocation allocation;
+  GdkRectangle geometry;
+  gint x, y, origin_x, origin_y, scale;
+  guint i;
+
+  if (!gtk_widget_get_mapped (widget)
+      || !gtk_widget_translate_coordinates (widget, toplevel, 0, 0, &x, &y))
+    return;
+
+  gdk_window_get_origin (gtk_widget_get_window (toplevel), &origin_x, &origin_y);
+  gtk_widget_get_allocation (widget, &allocation);
+  scale = gtk_widget_get_scale_factor (widget);
+
+  geometry.x = (origin_x + x) * scale;
+  geometry.y = (origin_y + y) * scale;
+  geometry.width = allocation.width * scale;
+  geometry.height = allocation.height * scale;
+
+  if (!force && gdk_rectangle_equal (&geometry, &self->geometry))
+    return;
+  self->geometry = geometry;
+
+  for (i = 0; i < windows->len; i++)
+    wnck_window_set_icon_geometry (g_ptr_array_index (windows, i),
+                                   geometry.x, geometry.y,
+                                   geometry.width, geometry.height);
+}
+
+static void
+on_size_allocate (GtkWidget     *widget,
+                  GtkAllocation *allocation,
+                  gpointer       user_data)
+{
+  update_icon_geometry (MOCKA_DOCK_BUTTON (widget), FALSE);
+}
+
+static void
+on_map (GtkWidget *widget,
+        gpointer   user_data)
+{
+  update_icon_geometry (MOCKA_DOCK_BUTTON (widget), TRUE);
+}
+
 static void
 on_windows_changed (MockaDockApp *app,
                     gpointer      user_data)
 {
   MockaDockButton *self = MOCKA_DOCK_BUTTON (user_data);
   GPtrArray *windows = mocka_dock_app_get_windows (app);
+
+  update_icon_geometry (self, TRUE);
 
   if (mocka_dock_app_get_entry (app) != NULL)
     return;
@@ -323,6 +381,9 @@ mocka_dock_button_init (MockaDockButton *self)
 
   g_signal_connect (self, "notify::scale-factor",
                     G_CALLBACK (mocka_dock_button_scale_changed), NULL);
+  g_signal_connect_after (self, "size-allocate",
+                          G_CALLBACK (on_size_allocate), NULL);
+  g_signal_connect_after (self, "map", G_CALLBACK (on_map), NULL);
 }
 
 GtkWidget *
