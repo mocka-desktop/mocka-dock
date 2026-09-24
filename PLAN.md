@@ -44,7 +44,7 @@ does not take the panel down with it.
 - [x] Verify Super + number can be grabbed alongside marco and the Super key menu shortcut, with NumLock and CapsLock on or off
 - [x] `docs/test-data/` with `xprop WM_CLASS` output for Firefox, Chromium plus a web app, LibreOffice, Caja, a terminal, an Electron app, a Wine app, a Java app, and a Qt app
 - [x] `docs/test-data/` also covers a window that changes its class after mapping (LibreOffice) and a GTK app launched with startup notification. No recorded app changed its class (LibreOffice with GTK3 keeps `soffice`), so M1 tests rematching with made-up class changes
-- [x] Port skeleton in the GhostBSD ports overlay
+- [x] Port skeleton in the GhostBSD ports overlay (draft only, kept in a `ghostbsd-ports` stash until the M3 alpha)
 - [x] Manual test by maintainer
 
 ## M1: Core taskbar
@@ -81,6 +81,7 @@ does not take the panel down with it.
 - [ ] Dock menu on Ctrl + right click and empty space. Preferences stays hidden until the window exists (M7); settings are changed with `gsettings` meanwhile
 - [ ] Auto-resize and overflow arrows
 - [ ] Manual test by maintainer
+- [ ] Add `x11/mocka-dock` to ghostbsd-ports from the stashed draft, pointing at the alpha
 - [ ] Alpha release for GhostBSD testers
 
 ## M4: Thumbnails
