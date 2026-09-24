@@ -25,7 +25,8 @@ struct _MockaDockButton
   MockaDockApp *app;
   GtkWidget *image;
   gint size;
-  WnckWindow *icon_window;  /* fallback apps: window whose icon is shown */
+  GtkPositionType popup_side;  /* side of the button that faces the screen */
+  WnckWindow *icon_window;     /* fallback apps: window whose icon is shown */
 };
 
 G_DEFINE_TYPE (MockaDockButton, mocka_dock_button, GTK_TYPE_BUTTON)
@@ -124,6 +125,152 @@ mocka_dock_button_set_size (MockaDockButton *self,
   update_fallback_icon (self);
 }
 
+/* Sets where popups open: the side of the button facing away from the panel. */
+void
+mocka_dock_button_set_popup_side (MockaDockButton *self,
+                                  GtkPositionType  side)
+{
+  g_return_if_fail (MOCKA_IS_DOCK_BUTTON (self));
+
+  self->popup_side = side;
+}
+
+/* Brings a window forward, switching to its workspace first if needed. */
+static void
+activate_window (WnckWindow *window,
+                 guint32     time)
+{
+  WnckWorkspace *workspace = wnck_window_get_workspace (window);
+  WnckScreen *screen = wnck_window_get_screen (window);
+
+  if (workspace != NULL
+      && workspace != wnck_screen_get_active_workspace (screen))
+    wnck_workspace_activate (workspace, time);
+
+  wnck_window_activate (window, time);
+}
+
+/* SPEC section 7: activate the window, or minimize it when it is focused. */
+static void
+toggle_window (WnckWindow *window,
+               guint32     time)
+{
+  if (wnck_window_is_active (window))
+    wnck_window_minimize (window);
+  else
+    activate_window (window, time);
+}
+
+static void
+on_window_item_activate (GtkMenuItem *item,
+                         gpointer     user_data)
+{
+  toggle_window (WNCK_WINDOW (user_data), gtk_get_current_event_time ());
+}
+
+static GtkWidget *
+window_item_new (WnckWindow *window)
+{
+  GtkWidget *item = gtk_menu_item_new ();
+  GtkWidget *box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+  GtkWidget *label = gtk_label_new (wnck_window_get_name (window));
+
+  gtk_label_set_ellipsize (GTK_LABEL (label), PANGO_ELLIPSIZE_END);
+  gtk_label_set_max_width_chars (GTK_LABEL (label), 50);
+  gtk_label_set_xalign (GTK_LABEL (label), 0.0);
+
+  gtk_container_add (GTK_CONTAINER (box),
+                     gtk_image_new_from_pixbuf (wnck_window_get_mini_icon (window)));
+  gtk_container_add (GTK_CONTAINER (box), label);
+  gtk_container_add (GTK_CONTAINER (item), box);
+
+  /* The window may close while the list is open. */
+  g_signal_connect_object (item, "activate",
+                           G_CALLBACK (on_window_item_activate), window, 0);
+
+  return item;
+}
+
+static gboolean
+destroy_menu (gpointer menu)
+{
+  gtk_widget_destroy (menu);
+  return G_SOURCE_REMOVE;
+}
+
+static void
+on_menu_deactivate (GtkMenuShell *menu,
+                    gpointer      user_data)
+{
+  /* Items are activated after the menu deactivates, so destroy it later. */
+  g_idle_add (destroy_menu, menu);
+}
+
+/*
+ * Several windows: a list of their titles, standing in for the thumbnails
+ * of SPEC section 8 until M4. Clicking the button again closes it, because
+ * the open list takes that click.
+ */
+static void
+show_window_list (MockaDockButton *self,
+                  GPtrArray       *windows)
+{
+  GtkWidget *menu = gtk_menu_new ();
+  GdkGravity button_anchor, menu_anchor;
+  guint i;
+
+  for (i = 0; i < windows->len; i++)
+    gtk_menu_shell_append (GTK_MENU_SHELL (menu),
+                           window_item_new (g_ptr_array_index (windows, i)));
+
+  switch (self->popup_side)
+    {
+    case GTK_POS_BOTTOM:
+      button_anchor = GDK_GRAVITY_SOUTH_WEST;
+      menu_anchor = GDK_GRAVITY_NORTH_WEST;
+      break;
+    case GTK_POS_LEFT:
+      button_anchor = GDK_GRAVITY_NORTH_WEST;
+      menu_anchor = GDK_GRAVITY_NORTH_EAST;
+      break;
+    case GTK_POS_RIGHT:
+      button_anchor = GDK_GRAVITY_NORTH_EAST;
+      menu_anchor = GDK_GRAVITY_NORTH_WEST;
+      break;
+    case GTK_POS_TOP:
+    default:
+      button_anchor = GDK_GRAVITY_NORTH_WEST;
+      menu_anchor = GDK_GRAVITY_SOUTH_WEST;
+      break;
+    }
+
+  gtk_menu_attach_to_widget (GTK_MENU (menu), GTK_WIDGET (self), NULL);
+  g_object_set (menu, "anchor-hints",
+                GDK_ANCHOR_FLIP | GDK_ANCHOR_SLIDE | GDK_ANCHOR_RESIZE, NULL);
+  g_signal_connect (menu, "deactivate", G_CALLBACK (on_menu_deactivate), NULL);
+  gtk_widget_show_all (menu);
+  gtk_menu_popup_at_widget (GTK_MENU (menu), GTK_WIDGET (self),
+                            button_anchor, menu_anchor, NULL);
+}
+
+/* Plain left click (SPEC section 7). Launching waits for pinning (M2). */
+static void
+mocka_dock_button_clicked (GtkButton *button)
+{
+  MockaDockButton *self = MOCKA_DOCK_BUTTON (button);
+  GPtrArray *windows = mocka_dock_app_get_windows (self->app);
+  GdkModifierType state = 0;
+
+  gtk_get_current_event_state (&state);
+  if (state & gtk_accelerator_get_default_mod_mask ())
+    return;
+
+  if (windows->len == 1)
+    toggle_window (g_ptr_array_index (windows, 0), gtk_get_current_event_time ());
+  else if (windows->len > 1)
+    show_window_list (self, windows);
+}
+
 MockaDockApp *
 mocka_dock_button_get_app (MockaDockButton *self)
 {
@@ -157,8 +304,10 @@ static void
 mocka_dock_button_class_init (MockaDockButtonClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
+  GtkButtonClass *button_class = GTK_BUTTON_CLASS (klass);
 
   object_class->dispose = mocka_dock_button_dispose;
+  button_class->clicked = mocka_dock_button_clicked;
 }
 
 static void

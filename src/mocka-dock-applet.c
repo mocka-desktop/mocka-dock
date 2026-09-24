@@ -36,6 +36,7 @@ struct _MockaDockApplet
 
   GtkWidget *box;
   gint size;
+  GtkPositionType popup_side;
 
   WnckHandle *wnck;
   MockaAppIndex *index;
@@ -60,14 +61,48 @@ orientation_for_orient (MatePanelAppletOrient orient)
     }
 }
 
+/* The orient says which way the applet faces: UP on a bottom panel. */
+static GtkPositionType
+popup_side_for_orient (MatePanelAppletOrient orient)
+{
+  switch (orient)
+    {
+    case MATE_PANEL_APPLET_ORIENT_DOWN:
+      return GTK_POS_BOTTOM;
+    case MATE_PANEL_APPLET_ORIENT_LEFT:
+      return GTK_POS_LEFT;
+    case MATE_PANEL_APPLET_ORIENT_RIGHT:
+      return GTK_POS_RIGHT;
+    case MATE_PANEL_APPLET_ORIENT_UP:
+    default:
+      return GTK_POS_TOP;
+    }
+}
+
+static void
+set_button_popup_side (GtkWidget *button,
+                       gpointer   user_data)
+{
+  mocka_dock_button_set_popup_side (MOCKA_DOCK_BUTTON (button),
+                                    GPOINTER_TO_INT (user_data));
+}
+
+static void
+apply_orient (MockaDockApplet       *self,
+              MatePanelAppletOrient  orient)
+{
+  gtk_orientable_set_orientation (GTK_ORIENTABLE (self->box),
+                                  orientation_for_orient (orient));
+  self->popup_side = popup_side_for_orient (orient);
+  gtk_container_foreach (GTK_CONTAINER (self->box), set_button_popup_side,
+                         GINT_TO_POINTER (self->popup_side));
+}
+
 static void
 mocka_dock_applet_change_orient (MatePanelApplet       *applet,
                                  MatePanelAppletOrient  orient)
 {
-  MockaDockApplet *self = MOCKA_DOCK_APPLET (applet);
-
-  gtk_orientable_set_orientation (GTK_ORIENTABLE (self->box),
-                                  orientation_for_orient (orient));
+  apply_orient (MOCKA_DOCK_APPLET (applet), orient);
 }
 
 static void
@@ -113,6 +148,8 @@ on_items_changed (GListModel *list,
       GtkWidget *button = mocka_dock_button_new (app);
 
       mocka_dock_button_set_size (MOCKA_DOCK_BUTTON (button), self->size);
+      mocka_dock_button_set_popup_side (MOCKA_DOCK_BUTTON (button),
+                                        self->popup_side);
       gtk_box_pack_start (GTK_BOX (self->box), button, FALSE, FALSE, 0);
       gtk_box_reorder_child (GTK_BOX (self->box), button, position + i);
       gtk_widget_show_all (button);
@@ -182,8 +219,7 @@ mocka_dock_applet_setup (MockaDockApplet *self)
   mate_panel_applet_set_background_widget (applet, GTK_WIDGET (self));
 
   self->size = mate_panel_applet_get_size (applet);
-  gtk_orientable_set_orientation (GTK_ORIENTABLE (self->box),
-      orientation_for_orient (mate_panel_applet_get_orient (applet)));
+  apply_orient (self, mate_panel_applet_get_orient (applet));
 
   self->index = mocka_app_index_new_for_system ();
   self->model = mocka_dock_model_new ();

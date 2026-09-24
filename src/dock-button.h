@@ -20,5 +20,7 @@ GtkWidget    *mocka_dock_button_new           (MockaDockApp    *app);
 MockaDockApp *mocka_dock_button_get_app       (MockaDockButton *self);
 void          mocka_dock_button_set_size      (MockaDockButton *self,
                                                gint             size);
+void          mocka_dock_button_set_popup_side (MockaDockButton *self,
+                                                GtkPositionType  side);
 
 G_END_DECLS

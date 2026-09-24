@@ -54,8 +54,8 @@ does not take the panel down with it.
 - [x] Window tracker and dock model for running apps, grouped per app, unpinned apps in start order
 - [x] Skip-taskbar windows are not shown
 - [x] Horizontal and vertical panels, following orientation and size changes
-- [ ] Buttons with icons, following icon theme changes and HiDPI
-- [ ] Left click behavior, with a plain window list for several windows
+- [x] Buttons with icons, following icon theme changes and HiDPI (HiDPI checked at GDK_SCALE=2, not on a HiDPI screen)
+- [x] Left click behavior, with a plain window list for several windows
 - [ ] Middle click and Shift + click for a new instance
 - [ ] Bar indicator and active app highlight in theme colors
 - [ ] Current-workspace filtering and `show-all-workspaces`, with unit tests for the model
