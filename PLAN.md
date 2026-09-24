@@ -53,7 +53,7 @@ does not take the panel down with it.
 - [x] Rematch a window when its class changes
 - [x] Window tracker and dock model for running apps, grouped per app, unpinned apps in start order
 - [x] Skip-taskbar windows are not shown
-- [ ] Horizontal and vertical panels, following orientation and size changes
+- [x] Horizontal and vertical panels, following orientation and size changes
 - [ ] Buttons with icons, following icon theme changes and HiDPI
 - [ ] Left click behavior, with a plain window list for several windows
 - [ ] Middle click and Shift + click for a new instance

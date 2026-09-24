@@ -15,7 +15,7 @@ core_dep = declare_dependency(
 
 executable('mocka-dock-applet',
   'mocka-dock-applet.c',
-  'probe.c',
+  'dock-button.c',
   'window-tracker.c',
   include_directories: config_inc,
   dependencies: [core_dep, gtk_dep, applet_dep, wnck_dep, x11_dep, cairo_xlib_dep],

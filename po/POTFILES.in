@@ -1,4 +1,3 @@
 data/org.mocka_desktop.Dock.gschema.xml
 data/org.mocka_desktop.DockApplet.mate-panel-applet.desktop.in
 src/mocka-dock-applet.c
-src/probe.c
