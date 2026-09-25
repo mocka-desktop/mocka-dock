@@ -128,6 +128,21 @@ mocka_dock_applet_change_size (MatePanelApplet *applet,
                          GINT_TO_POINTER (self->size));
 }
 
+/* Launches through the tracker, which remembers the startup ID. */
+static void
+on_button_launch (MockaDockButton *button,
+                  gpointer         user_data)
+{
+  MockaDockApplet *self = MOCKA_DOCK_APPLET (user_data);
+  MockaAppEntry *entry = mocka_dock_app_get_entry (mocka_dock_button_get_app (button));
+  g_autoptr(GError) error = NULL;
+
+  if (!mocka_window_tracker_launch (self->tracker, entry,
+                                    gtk_widget_get_display (GTK_WIDGET (button)),
+                                    gtk_get_current_event_time (), &error))
+    g_warning ("Cannot launch %s: %s", entry->id, error->message);
+}
+
 /* Keeps the buttons in the same order as the apps in the model. */
 static void
 on_items_changed (GListModel *list,
@@ -153,6 +168,7 @@ on_items_changed (GListModel *list,
       mocka_dock_button_set_size (MOCKA_DOCK_BUTTON (button), self->size);
       mocka_dock_button_set_popup_side (MOCKA_DOCK_BUTTON (button),
                                         self->popup_side);
+      g_signal_connect (button, "launch", G_CALLBACK (on_button_launch), self);
       gtk_box_pack_start (GTK_BOX (self->box), button, FALSE, FALSE, 0);
       gtk_box_reorder_child (GTK_BOX (self->box), button, position + i);
       gtk_widget_show_all (button);

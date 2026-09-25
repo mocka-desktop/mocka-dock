@@ -15,8 +15,6 @@
 
 #include "dock-button.h"
 
-#include <gio/gdesktopappinfo.h>
-
 #define WNCK_I_KNOW_THIS_IS_UNSTABLE
 #include <libwnck/libwnck.h>
 
@@ -32,6 +30,14 @@ struct _MockaDockButton
   WnckWindow *icon_window;     /* fallback apps: window whose icon is shown */
   GdkRectangle geometry;       /* last icon geometry set, in screen pixels */
 };
+
+enum
+{
+  SIGNAL_LAUNCH,
+  N_SIGNALS
+};
+
+static guint signals[N_SIGNALS];
 
 G_DEFINE_TYPE (MockaDockButton, mocka_dock_button, GTK_TYPE_BUTTON)
 
@@ -414,35 +420,16 @@ show_window_list (MockaDockButton *self,
 }
 
 /*
- * Starts a new instance of the app. Apps using the class fallback have no
- * desktop entry and cannot be launched (SPEC section 6, step 6).
+ * Asks for a new instance of the app through the "launch" signal; the
+ * applet launches it, so the dock can recognize its windows by startup ID.
+ * Apps using the class fallback have no desktop entry and cannot be
+ * launched (SPEC section 6, step 6).
  */
 static void
 launch_new_instance (MockaDockButton *self)
 {
-  MockaAppEntry *entry = mocka_dock_app_get_entry (self->app);
-  g_autoptr(GDesktopAppInfo) info = NULL;
-  g_autoptr(GdkAppLaunchContext) context = NULL;
-  g_autoptr(GError) error = NULL;
-
-  if (entry == NULL)
-    return;
-
-  info = g_desktop_app_info_new_from_filename (entry->path);
-  if (info == NULL)
-    {
-      g_warning ("Cannot read desktop entry %s", entry->path);
-      return;
-    }
-
-  /* Startup notification and the click's time, so the new window gets focus. */
-  context = gdk_display_get_app_launch_context (
-      gtk_widget_get_display (GTK_WIDGET (self)));
-  gdk_app_launch_context_set_timestamp (context, gtk_get_current_event_time ());
-
-  if (!g_app_info_launch (G_APP_INFO (info), NULL,
-                          G_APP_LAUNCH_CONTEXT (context), &error))
-    g_warning ("Cannot launch %s: %s", entry->id, error->message);
+  if (mocka_dock_app_get_entry (self->app) != NULL)
+    g_signal_emit (self, signals[SIGNAL_LAUNCH], 0);
 }
 
 static void
@@ -531,6 +518,10 @@ mocka_dock_button_class_init (MockaDockButtonClass *klass)
   GtkButtonClass *button_class = GTK_BUTTON_CLASS (klass);
 
   object_class->dispose = mocka_dock_button_dispose;
+
+  signals[SIGNAL_LAUNCH] =
+    g_signal_new ("launch", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
+                  0, NULL, NULL, NULL, G_TYPE_NONE, 0);
   widget_class->draw = mocka_dock_button_draw;
   button_class->clicked = mocka_dock_button_clicked;
 }

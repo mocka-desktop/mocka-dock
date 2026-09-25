@@ -18,6 +18,10 @@
 
 #include "window-tracker.h"
 
+#include <gio/gdesktopappinfo.h>
+#include <gdk/gdkx.h>
+#include <X11/Xlib.h>
+
 #include "matcher.h"
 
 struct _MockaWindowTracker
@@ -28,6 +32,7 @@ struct _MockaWindowTracker
   MockaAppIndex *index;
   MockaDockModel *model;
   gboolean show_all_workspaces;
+  GHashTable *launches;  /* startup ID → desktop entry ID, apps the dock launched */
 };
 
 enum
@@ -65,12 +70,60 @@ update_visibility (MockaWindowTracker *self)
                                          is_shown (self, l->data));
 }
 
+/* The window's own _NET_STARTUP_ID, or NULL. */
+static gchar *
+read_window_startup_id (WnckWindow *window)
+{
+  GdkDisplay *display = gdk_display_get_default ();
+  Display *dpy = gdk_x11_display_get_xdisplay (display);
+  Atom type;
+  int format;
+  unsigned long n_items, bytes_after;
+  unsigned char *data = NULL;
+  gchar *id = NULL;
+
+  gdk_x11_display_error_trap_push (display);
+  if (XGetWindowProperty (dpy, wnck_window_get_xid (window),
+                          gdk_x11_get_xatom_by_name_for_display (display,
+                                                                 "_NET_STARTUP_ID"),
+                          0, 1024, False, AnyPropertyType, &type, &format,
+                          &n_items, &bytes_after, &data) == Success
+      && data != NULL && format == 8 && n_items > 0)
+    id = g_strndup ((const gchar *) data, n_items);
+  if (data != NULL)
+    XFree (data);
+  gdk_x11_display_error_trap_pop_ignored (display);
+
+  return id;
+}
+
+/*
+ * The startup notification ID from the window, or from its client leader,
+ * where GTK apps set it (SPEC section 6, step 5).
+ */
+static gchar *
+get_startup_id (WnckWindow *window)
+{
+  WnckApplication *application;
+  gchar *id = read_window_startup_id (window);
+
+  if (id != NULL)
+    return id;
+
+  application = wnck_window_get_application (window);
+  if (application != NULL && wnck_application_get_startup_id (application) != NULL)
+    return g_strdup (wnck_application_get_startup_id (application));
+
+  return NULL;
+}
+
 static void
 update_window (MockaWindowTracker *self,
                WnckWindow         *window)
 {
   g_autoptr(MockaAppEntry) entry = NULL;
   g_autofree gchar *key = NULL;
+  g_autofree gchar *startup_id = NULL;
   const gchar *res_class;
 
   if (wnck_window_is_skip_tasklist (window))
@@ -79,10 +132,14 @@ update_window (MockaWindowTracker *self,
       return;
     }
 
+  /* Only needed for windows of apps the dock launched. */
+  if (g_hash_table_size (self->launches) > 0)
+    startup_id = get_startup_id (window);
+
   res_class = wnck_window_get_class_group_name (window);
   entry = mocka_matcher_match (self->index,
                                wnck_window_get_class_instance_name (window),
-                               res_class, NULL, NULL, NULL);
+                               res_class, startup_id, self->launches, NULL);
   key = mocka_dock_app_key_for (entry, res_class);
 
   mocka_dock_model_add_window (self->model, window, key, entry,
@@ -190,6 +247,16 @@ mocka_window_tracker_dispose (GObject *object)
 }
 
 static void
+mocka_window_tracker_finalize (GObject *object)
+{
+  MockaWindowTracker *self = MOCKA_WINDOW_TRACKER (object);
+
+  g_hash_table_unref (self->launches);
+
+  G_OBJECT_CLASS (mocka_window_tracker_parent_class)->finalize (object);
+}
+
+static void
 mocka_window_tracker_get_property (GObject    *object,
                                    guint       prop_id,
                                    GValue     *value,
@@ -236,6 +303,7 @@ mocka_window_tracker_class_init (MockaWindowTrackerClass *klass)
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
   object_class->dispose = mocka_window_tracker_dispose;
+  object_class->finalize = mocka_window_tracker_finalize;
   object_class->get_property = mocka_window_tracker_get_property;
   object_class->set_property = mocka_window_tracker_set_property;
 
@@ -251,6 +319,64 @@ mocka_window_tracker_class_init (MockaWindowTrackerClass *klass)
 static void
 mocka_window_tracker_init (MockaWindowTracker *self)
 {
+  /* Kept for the session: apps keep their startup ID on later windows. */
+  self->launches = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                          g_free, g_free);
+}
+
+static void
+on_launched (GAppLaunchContext *context,
+             GAppInfo          *info,
+             GVariant          *platform_data,
+             gpointer           user_data)
+{
+  MockaWindowTracker *self = MOCKA_WINDOW_TRACKER (user_data);
+  const gchar *desktop_id = g_object_get_data (G_OBJECT (context),
+                                               "mocka-desktop-id");
+  const gchar *startup_id = NULL;
+
+  if (g_variant_lookup (platform_data, "startup-notification-id", "&s",
+                        &startup_id)
+      && startup_id != NULL && *startup_id != '\0')
+    g_hash_table_insert (self->launches, g_strdup (startup_id),
+                         g_strdup (desktop_id));
+}
+
+/*
+ * Launches an app, with startup notification and the time of the click so
+ * its window gets focus. The startup ID is remembered, so the app's windows
+ * are matched to it even when their class matches no desktop entry (SPEC
+ * section 6, step 5).
+ */
+gboolean
+mocka_window_tracker_launch (MockaWindowTracker  *self,
+                             MockaAppEntry       *entry,
+                             GdkDisplay          *display,
+                             guint32              timestamp,
+                             GError             **error)
+{
+  g_autoptr(GDesktopAppInfo) info = NULL;
+  g_autoptr(GdkAppLaunchContext) context = NULL;
+
+  g_return_val_if_fail (MOCKA_IS_WINDOW_TRACKER (self), FALSE);
+  g_return_val_if_fail (entry != NULL, FALSE);
+
+  info = g_desktop_app_info_new_from_filename (entry->path);
+  if (info == NULL)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
+                   "Cannot read desktop entry %s", entry->path);
+      return FALSE;
+    }
+
+  context = gdk_display_get_app_launch_context (display);
+  gdk_app_launch_context_set_timestamp (context, timestamp);
+  g_object_set_data_full (G_OBJECT (context), "mocka-desktop-id",
+                          g_strdup (entry->id), g_free);
+  g_signal_connect (context, "launched", G_CALLBACK (on_launched), self);
+
+  return g_app_info_launch (G_APP_INFO (info), NULL,
+                            G_APP_LAUNCH_CONTEXT (context), error);
 }
 
 /*
