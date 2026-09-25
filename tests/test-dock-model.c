@@ -272,6 +272,116 @@ test_hidden_class_change (Fixture       *fixture,
   assert_order (fixture->model, "libreoffice-writer.desktop");
 }
 
+/* Pins the apps with these space-separated IDs, in order. */
+static void
+set_pinned (MockaDockModel *model,
+            const gchar    *ids)
+{
+  g_auto(GStrv) split = g_strsplit (ids, " ", -1);
+  g_autoptr(GPtrArray) entries =
+    g_ptr_array_new_with_free_func ((GDestroyNotify) mocka_app_entry_unref);
+  guint i;
+
+  for (i = 0; split[i] != NULL; i++)
+    {
+      MockaAppEntry *entry;
+
+      if (*split[i] == '\0')
+        continue;
+      entry = g_rc_box_new0 (MockaAppEntry);
+      entry->id = g_strdup (split[i]);
+      g_ptr_array_add (entries, entry);
+    }
+
+  mocka_dock_model_set_pinned (model, entries);
+}
+
+/* Pinned apps first, in the user's order, running or not (SPEC section 5). */
+static void
+test_pinned_first (Fixture       *fixture,
+                   gconstpointer  data)
+{
+  MockaDockApp *app;
+
+  mocka_dock_model_add_window (fixture->model, WINDOW (1), "b.desktop", NULL, TRUE);
+  set_pinned (fixture->model, "c.desktop a.desktop");
+  assert_order (fixture->model, "c.desktop a.desktop b.desktop");
+
+  app = mocka_dock_model_lookup (fixture->model, "c.desktop");
+  g_assert_true (mocka_dock_app_get_pinned (app));
+  g_assert_cmpuint (mocka_dock_app_get_windows (app)->len, ==, 0);
+  g_assert_nonnull (mocka_dock_app_get_entry (app));
+
+  /* A pinned app starting keeps its button. */
+  fixture->changes = 0;
+  mocka_dock_model_add_window (fixture->model, WINDOW (2), "a.desktop", NULL, TRUE);
+  assert_order (fixture->model, "c.desktop a.desktop b.desktop");
+  g_assert_cmpuint (fixture->changes, ==, 0);
+
+  /* Its last window closing does not remove it either. */
+  mocka_dock_model_remove_window (fixture->model, WINDOW (2));
+  assert_order (fixture->model, "c.desktop a.desktop b.desktop");
+  g_assert_cmpuint (fixture->changes, ==, 0);
+}
+
+/*
+ * Unpinning: a running app moves after the pinned apps, at its place in
+ * start order; an app that is not running goes away.
+ */
+static void
+test_unpin (Fixture       *fixture,
+            gconstpointer  data)
+{
+  set_pinned (fixture->model, "a.desktop b.desktop");
+  mocka_dock_model_add_window (fixture->model, WINDOW (1), "x.desktop", NULL, TRUE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (2), "a.desktop", NULL, TRUE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (3), "y.desktop", NULL, TRUE);
+  assert_order (fixture->model, "a.desktop b.desktop x.desktop y.desktop");
+
+  set_pinned (fixture->model, "");
+  assert_order (fixture->model, "x.desktop a.desktop y.desktop");
+  g_assert_null (mocka_dock_model_lookup (fixture->model, "b.desktop"));
+}
+
+/* Reordering pinned apps, and a duplicate ID counting once. */
+static void
+test_pinned_order (Fixture       *fixture,
+                   gconstpointer  data)
+{
+  set_pinned (fixture->model, "a.desktop b.desktop c.desktop");
+  set_pinned (fixture->model, "c.desktop a.desktop c.desktop b.desktop");
+  assert_order (fixture->model, "c.desktop a.desktop b.desktop");
+}
+
+/* Only the part of the dock that changed is reported. */
+static void
+test_minimal_change (Fixture       *fixture,
+                     gconstpointer  data)
+{
+  set_pinned (fixture->model, "a.desktop b.desktop");
+  mocka_dock_model_add_window (fixture->model, WINDOW (1), "x.desktop", NULL, TRUE);
+  g_assert_cmpuint (fixture->last_position, ==, 2);
+  g_assert_cmpuint (fixture->last_removed, ==, 0);
+  g_assert_cmpuint (fixture->last_added, ==, 1);
+
+  set_pinned (fixture->model, "a.desktop z.desktop b.desktop");
+  g_assert_cmpuint (fixture->last_position, ==, 1);
+  g_assert_cmpuint (fixture->last_removed, ==, 0);
+  g_assert_cmpuint (fixture->last_added, ==, 1);
+}
+
+/* A pinned app with its windows on other workspaces shows as not running. */
+static void
+test_pinned_hidden (Fixture       *fixture,
+                    gconstpointer  data)
+{
+  set_pinned (fixture->model, "a.desktop");
+  mocka_dock_model_add_window (fixture->model, WINDOW (1), "a.desktop", NULL, FALSE);
+  assert_order (fixture->model, "a.desktop");
+  g_assert_cmpuint (mocka_dock_app_get_windows (
+      mocka_dock_model_lookup (fixture->model, "a.desktop"))->len, ==, 0);
+}
+
 static void
 test_key_for (void)
 {
@@ -302,6 +412,16 @@ main (int    argc,
               fixture_setup, test_hidden_closes, fixture_teardown);
   g_test_add ("/dock-model/hidden-class-change", Fixture, NULL,
               fixture_setup, test_hidden_class_change, fixture_teardown);
+  g_test_add ("/dock-model/pinned-first", Fixture, NULL,
+              fixture_setup, test_pinned_first, fixture_teardown);
+  g_test_add ("/dock-model/unpin", Fixture, NULL,
+              fixture_setup, test_unpin, fixture_teardown);
+  g_test_add ("/dock-model/pinned-order", Fixture, NULL,
+              fixture_setup, test_pinned_order, fixture_teardown);
+  g_test_add ("/dock-model/minimal-change", Fixture, NULL,
+              fixture_setup, test_minimal_change, fixture_teardown);
+  g_test_add ("/dock-model/pinned-hidden", Fixture, NULL,
+              fixture_setup, test_pinned_hidden, fixture_teardown);
   g_test_add_func ("/dock-model/key-for", test_key_for);
 
   return g_test_run ();

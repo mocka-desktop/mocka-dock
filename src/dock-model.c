@@ -7,10 +7,13 @@
 /*
  * The apps shown in the dock and their windows (SPEC section 5).
  *
+ * Pinned apps come first, in the order the user arranged them, whether they
+ * run or not. Then come apps that are not pinned and have a shown window, in
+ * the order their first window appeared.
+ *
  * The model keeps every window it is given, each either shown or hidden
- * (on another workspace). Apps keep the order their first window appeared
- * in, and are listed only while at least one of their windows is shown. An
- * app is forgotten when its last window closes.
+ * (on another workspace). An app that is not pinned is forgotten when its
+ * last window closes.
  */
 
 #include "config.h"
@@ -23,6 +26,7 @@ struct _MockaDockApp
 
   gchar *key;
   MockaAppEntry *entry;
+  gboolean pinned;
   GPtrArray *all_windows;  /* shown and hidden, oldest first */
   GPtrArray *windows;      /* shown only, oldest first */
 };
@@ -100,6 +104,14 @@ mocka_dock_app_get_entry (MockaDockApp *self)
   return self->entry;
 }
 
+gboolean
+mocka_dock_app_get_pinned (MockaDockApp *self)
+{
+  g_return_val_if_fail (MOCKA_IS_DOCK_APP (self), FALSE);
+
+  return self->pinned;
+}
+
 /*
  * The app's shown windows, oldest first. Counts, clicks, and lists use only
  * these (SPEC section 5). Owned by the app.
@@ -116,8 +128,9 @@ struct _MockaDockModel
 {
   GObject parent_instance;
 
-  GPtrArray *apps;        /* every app with windows, owned, in start order */
-  GPtrArray *listed;      /* apps with a shown window, in start order */
+  GPtrArray *apps;        /* every known app, owned, in start order */
+  GPtrArray *pinned;      /* pinned apps, in the user's order */
+  GPtrArray *listed;      /* the dock: pinned apps, then running ones */
   GHashTable *by_key;     /* key → MockaDockApp */
   GHashTable *by_window;  /* window → MockaDockApp */
   GHashTable *hidden;     /* set of hidden windows */
@@ -170,6 +183,7 @@ mocka_dock_model_finalize (GObject *object)
   g_hash_table_unref (self->by_window);
   g_hash_table_unref (self->by_key);
   g_ptr_array_unref (self->listed);
+  g_ptr_array_unref (self->pinned);
   g_ptr_array_unref (self->apps);
 
   G_OBJECT_CLASS (mocka_dock_model_parent_class)->finalize (object);
@@ -187,6 +201,7 @@ static void
 mocka_dock_model_init (MockaDockModel *self)
 {
   self->apps = g_ptr_array_new_with_free_func (g_object_unref);
+  self->pinned = g_ptr_array_new ();
   self->listed = g_ptr_array_new ();
   self->by_key = g_hash_table_new (g_str_hash, g_str_equal);
   self->by_window = g_hash_table_new (NULL, NULL);
@@ -231,45 +246,109 @@ refresh_windows (MockaDockModel *self,
 }
 
 /*
- * Lists the app while it has a shown window, at its start-order position
- * among the listed apps, and forgets it once it has no windows at all.
+ * Rebuilds the dock (pinned apps, then apps with a shown window) and reports
+ * only the part that changed, so buttons outside it are kept. Then forgets
+ * apps that are neither pinned nor have windows.
  */
 static void
-sync_app (MockaDockModel *self,
-          MockaDockApp   *app)
+sync_listed (MockaDockModel *self)
 {
-  gboolean listed;
-  guint position = 0;
+  g_autoptr(GPtrArray) listed = g_ptr_array_new ();
+  guint prefix = 0, suffix = 0;
+  guint old_len = self->listed->len;
   guint i;
 
-  listed = g_ptr_array_find (self->listed, app, &position);
-
-  if (app->windows->len > 0 && !listed)
+  g_ptr_array_extend (listed, self->pinned, NULL, NULL);
+  for (i = 0; i < self->apps->len; i++)
     {
-      for (i = 0; i < self->apps->len; i++)
+      MockaDockApp *app = g_ptr_array_index (self->apps, i);
+
+      if (!app->pinned && app->windows->len > 0)
+        g_ptr_array_add (listed, app);
+    }
+
+  while (prefix < old_len && prefix < listed->len
+         && g_ptr_array_index (self->listed, prefix)
+            == g_ptr_array_index (listed, prefix))
+    prefix++;
+
+  while (suffix < old_len - prefix && suffix < listed->len - prefix
+         && g_ptr_array_index (self->listed, old_len - 1 - suffix)
+            == g_ptr_array_index (listed, listed->len - 1 - suffix))
+    suffix++;
+
+  if (prefix + suffix < old_len || prefix + suffix < listed->len)
+    {
+      g_ptr_array_set_size (self->listed, 0);
+      g_ptr_array_extend (self->listed, listed, NULL, NULL);
+      g_list_model_items_changed (G_LIST_MODEL (self), prefix,
+                                  old_len - prefix - suffix,
+                                  listed->len - prefix - suffix);
+    }
+
+  for (i = self->apps->len; i > 0; i--)
+    {
+      MockaDockApp *app = g_ptr_array_index (self->apps, i - 1);
+
+      if (!app->pinned && app->all_windows->len == 0)
         {
-          MockaDockApp *other = g_ptr_array_index (self->apps, i);
-
-          if (other == app)
-            break;
-          if (other->windows->len > 0)
-            position++;
+          g_hash_table_remove (self->by_key, app->key);
+          g_ptr_array_remove_index (self->apps, i - 1);
         }
+    }
+}
 
-      g_ptr_array_insert (self->listed, position, app);
-      g_list_model_items_changed (G_LIST_MODEL (self), position, 0, 1);
-    }
-  else if (app->windows->len == 0 && listed)
+/* The app with this key, creating it after all known apps if needed. */
+static MockaDockApp *
+ensure_app (MockaDockModel *self,
+            const gchar    *key,
+            MockaAppEntry  *entry)
+{
+  MockaDockApp *app = g_hash_table_lookup (self->by_key, key);
+
+  if (app == NULL)
     {
-      g_ptr_array_remove_index (self->listed, position);
-      g_list_model_items_changed (G_LIST_MODEL (self), position, 1, 0);
+      app = mocka_dock_app_new (key, entry);
+      g_ptr_array_add (self->apps, app);
+      g_hash_table_insert (self->by_key, app->key, app);
+    }
+  else if (app->entry == NULL && entry != NULL)
+    {
+      app->entry = mocka_app_entry_ref (entry);
     }
 
-  if (app->all_windows->len == 0)
+  return app;
+}
+
+/*
+ * Sets the pinned apps, in order (SPEC section 10). Apps no longer pinned
+ * keep their button while they have shown windows, after the pinned ones.
+ */
+void
+mocka_dock_model_set_pinned (MockaDockModel *self,
+                             GPtrArray      *entries)
+{
+  guint i;
+
+  g_return_if_fail (MOCKA_IS_DOCK_MODEL (self));
+  g_return_if_fail (entries != NULL);
+
+  for (i = 0; i < self->pinned->len; i++)
+    ((MockaDockApp *) g_ptr_array_index (self->pinned, i))->pinned = FALSE;
+  g_ptr_array_set_size (self->pinned, 0);
+
+  for (i = 0; i < entries->len; i++)
     {
-      g_hash_table_remove (self->by_key, app->key);
-      g_ptr_array_remove (self->apps, app);
+      MockaAppEntry *entry = g_ptr_array_index (entries, i);
+      MockaDockApp *app = ensure_app (self, entry->id, entry);
+
+      if (app->pinned)
+        continue;
+      app->pinned = TRUE;
+      g_ptr_array_add (self->pinned, app);
     }
+
+  sync_listed (self);
 }
 
 /* The app with this key, listed or not, or NULL. */
@@ -312,7 +391,7 @@ mocka_dock_model_remove_window (MockaDockModel *self,
   g_ptr_array_remove (app->all_windows, window);
 
   refresh_windows (self, app);
-  sync_app (self, app);
+  sync_listed (self);
 }
 
 /*
@@ -338,7 +417,7 @@ mocka_dock_model_set_window_visible (MockaDockModel *self,
     g_hash_table_add (self->hidden, window);
 
   refresh_windows (self, app);
-  sync_app (self, app);
+  sync_listed (self);
 }
 
 /*
@@ -370,12 +449,13 @@ mocka_dock_model_add_window (MockaDockModel *self,
       mocka_dock_model_remove_window (self, window);
     }
 
-  app = g_hash_table_lookup (self->by_key, key);
-  if (app == NULL)
+  app = ensure_app (self, key, entry);
+
+  /* Start order counts from an app's first window, also for pinned apps. */
+  if (app->all_windows->len == 0)
     {
-      app = mocka_dock_app_new (key, entry);
-      g_ptr_array_add (self->apps, app);
-      g_hash_table_insert (self->by_key, app->key, app);
+      g_ptr_array_add (self->apps, g_object_ref (app));
+      g_ptr_array_remove (self->apps, app);
     }
 
   g_ptr_array_add (app->all_windows, window);
@@ -384,7 +464,7 @@ mocka_dock_model_add_window (MockaDockModel *self,
     g_hash_table_add (self->hidden, window);
 
   refresh_windows (self, app);
-  sync_app (self, app);
+  sync_listed (self);
 }
 
 /* The key of the app a window belongs to (see mocka_dock_app_get_key). */

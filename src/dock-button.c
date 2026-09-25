@@ -462,8 +462,8 @@ on_middle_click_released (GtkGestureMultiPress *gesture,
 }
 
 /*
- * Left click (SPEC section 7). Shift + click launches a new instance;
- * Ctrl + click comes in M5, and launching a pinned app in M2.
+ * Left click (SPEC section 7). An app that is not running is launched, and
+ * Shift + click launches a new instance. Ctrl + click comes in M5.
  */
 static void
 mocka_dock_button_clicked (GtkButton *button)
@@ -485,7 +485,9 @@ mocka_dock_button_clicked (GtkButton *button)
   if (mods != 0)
     return;
 
-  if (windows->len == 1)
+  if (windows->len == 0)
+    launch_new_instance (self);
+  else if (windows->len == 1)
     toggle_window (g_ptr_array_index (windows, 0), gtk_get_current_event_time ());
   else if (windows->len > 1)
     show_window_list (self, windows);

@@ -40,6 +40,7 @@ struct _MockaDockApplet
   GtkPositionType popup_side;
 
   GSettings *settings;         /* per dock (SPEC section 16) */
+  GSettings *shared_settings;  /* shared by all docks: pinned-apps */
   WnckHandle *wnck;
   MockaAppIndex *index;
   MockaDockModel *model;
@@ -172,16 +173,41 @@ load_style (void)
       GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 }
 
+/*
+ * Pinned apps from the shared pinned-apps setting (SPEC section 10). IDs of
+ * apps that are not installed are kept in the setting but not shown.
+ */
+static void
+update_pinned (MockaDockApplet *self)
+{
+  g_auto(GStrv) ids = g_settings_get_strv (self->shared_settings, "pinned-apps");
+  g_autoptr(GPtrArray) entries = g_ptr_array_new ();
+  guint i;
+
+  for (i = 0; ids[i] != NULL; i++)
+    {
+      MockaAppEntry *entry = mocka_app_index_lookup (self->index, ids[i]);
+
+      if (entry != NULL)
+        g_ptr_array_add (entries, entry);
+    }
+
+  mocka_dock_model_set_pinned (self->model, entries);
+}
+
 static void
 mocka_dock_applet_dispose (GObject *object)
 {
   MockaDockApplet *self = MOCKA_DOCK_APPLET (object);
 
   g_clear_object (&self->settings);
+  g_clear_object (&self->shared_settings);
   g_clear_object (&self->tracker);
   if (self->model != NULL)
     g_signal_handlers_disconnect_by_data (self->model, self);
   g_clear_object (&self->model);
+  if (self->index != NULL)
+    g_signal_handlers_disconnect_by_data (self->index, self);
   g_clear_object (&self->index);
   g_clear_object (&self->wnck);
 
@@ -235,6 +261,13 @@ mocka_dock_applet_setup (MockaDockApplet *self)
       (gchar *) "org.mocka_desktop.Dock.Instance");
   g_settings_bind (self->settings, "show-all-workspaces",
                    self->tracker, "show-all-workspaces", G_SETTINGS_BIND_GET);
+
+  self->shared_settings = g_settings_new ("org.mocka_desktop.Dock");
+  g_signal_connect_swapped (self->shared_settings, "changed::pinned-apps",
+                            G_CALLBACK (update_pinned), self);
+  g_signal_connect_swapped (self->index, "changed",
+                            G_CALLBACK (update_pinned), self);
+  update_pinned (self);
 
   /* The focused app's button is highlighted (SPEC section 12). */
   g_signal_connect_object (wnck_handle_get_default_screen (self->wnck),

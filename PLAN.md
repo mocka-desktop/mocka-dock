@@ -64,8 +64,8 @@ does not take the panel down with it.
 
 ## M2: Pinning
 
-- [ ] `pinned-apps` storage and live updates
-- [ ] Pinned apps that are not running, launching them
+- [x] `pinned-apps` storage and live updates
+- [x] Pinned apps that are not running, launching them
 - [ ] Startup notification ID matching (SPEC section 6, step 5)
 - [ ] Pinned app with windows only on other workspaces: click switches to its window (SPEC section 5)
 - [ ] Pin and unpin from the app menu, undo popup

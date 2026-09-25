@@ -21,6 +21,7 @@ G_DECLARE_FINAL_TYPE (MockaDockApp, mocka_dock_app, MOCKA, DOCK_APP, GObject)
 
 const gchar   *mocka_dock_app_get_key     (MockaDockApp *self);
 MockaAppEntry *mocka_dock_app_get_entry   (MockaDockApp *self);
+gboolean       mocka_dock_app_get_pinned  (MockaDockApp *self);
 GPtrArray     *mocka_dock_app_get_windows (MockaDockApp *self);
 
 /* The ordered list of apps shown in the dock, as a GListModel. */
@@ -36,6 +37,8 @@ void            mocka_dock_model_add_window    (MockaDockModel *self,
                                                 gboolean        visible);
 void            mocka_dock_model_remove_window (MockaDockModel *self,
                                                 gpointer        window);
+void            mocka_dock_model_set_pinned    (MockaDockModel *self,
+                                                GPtrArray      *entries);
 void            mocka_dock_model_set_window_visible (MockaDockModel *self,
                                                      gpointer        window,
                                                      gboolean        visible);
