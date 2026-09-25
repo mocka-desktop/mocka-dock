@@ -11,6 +11,7 @@
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
 #include <mate-panel-applet.h>
+#include <mate-panel-applet-gsettings.h>
 
 #define WNCK_I_KNOW_THIS_IS_UNSTABLE
 #include <libwnck/libwnck.h>
@@ -38,6 +39,7 @@ struct _MockaDockApplet
   gint size;
   GtkPositionType popup_side;
 
+  GSettings *settings;         /* per dock (SPEC section 16) */
   WnckHandle *wnck;
   MockaAppIndex *index;
   MockaDockModel *model;
@@ -175,6 +177,7 @@ mocka_dock_applet_dispose (GObject *object)
 {
   MockaDockApplet *self = MOCKA_DOCK_APPLET (object);
 
+  g_clear_object (&self->settings);
   g_clear_object (&self->tracker);
   if (self->model != NULL)
     g_signal_handlers_disconnect_by_data (self->model, self);
@@ -227,6 +230,11 @@ mocka_dock_applet_setup (MockaDockApplet *self)
                     G_CALLBACK (on_items_changed), self);
   self->tracker = mocka_window_tracker_new (self->wnck, self->index,
                                             self->model);
+
+  self->settings = mate_panel_applet_settings_new (applet,
+      (gchar *) "org.mocka_desktop.Dock.Instance");
+  g_settings_bind (self->settings, "show-all-workspaces",
+                   self->tracker, "show-all-workspaces", G_SETTINGS_BIND_GET);
 
   /* The focused app's button is highlighted (SPEC section 12). */
   g_signal_connect_object (wnck_handle_get_default_screen (self->wnck),

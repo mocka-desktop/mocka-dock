@@ -32,9 +32,13 @@ MockaDockModel *mocka_dock_model_new           (void);
 void            mocka_dock_model_add_window    (MockaDockModel *self,
                                                 gpointer        window,
                                                 const gchar    *key,
-                                                MockaAppEntry  *entry);
+                                                MockaAppEntry  *entry,
+                                                gboolean        visible);
 void            mocka_dock_model_remove_window (MockaDockModel *self,
                                                 gpointer        window);
+void            mocka_dock_model_set_window_visible (MockaDockModel *self,
+                                                     gpointer        window,
+                                                     gboolean        visible);
 
 MockaDockApp   *mocka_dock_model_lookup        (MockaDockModel *self,
                                                 const gchar    *key);

@@ -90,9 +90,9 @@ test_grouping (Fixture       *fixture,
 {
   MockaDockApp *app;
 
-  mocka_dock_model_add_window (fixture->model, WINDOW (1), "a.desktop", NULL);
-  mocka_dock_model_add_window (fixture->model, WINDOW (2), "a.desktop", NULL);
-  mocka_dock_model_add_window (fixture->model, WINDOW (3), "b.desktop", NULL);
+  mocka_dock_model_add_window (fixture->model, WINDOW (1), "a.desktop", NULL, TRUE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (2), "a.desktop", NULL, TRUE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (3), "b.desktop", NULL, TRUE);
 
   assert_order (fixture->model, "a.desktop b.desktop");
   app = mocka_dock_model_lookup (fixture->model, "a.desktop");
@@ -106,10 +106,10 @@ static void
 test_start_order (Fixture       *fixture,
                   gconstpointer  data)
 {
-  mocka_dock_model_add_window (fixture->model, WINDOW (1), "b.desktop", NULL);
-  mocka_dock_model_add_window (fixture->model, WINDOW (2), "a.desktop", NULL);
-  mocka_dock_model_add_window (fixture->model, WINDOW (3), "b.desktop", NULL);
-  mocka_dock_model_add_window (fixture->model, WINDOW (4), "c.desktop", NULL);
+  mocka_dock_model_add_window (fixture->model, WINDOW (1), "b.desktop", NULL, TRUE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (2), "a.desktop", NULL, TRUE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (3), "b.desktop", NULL, TRUE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (4), "c.desktop", NULL, TRUE);
 
   assert_order (fixture->model, "b.desktop a.desktop c.desktop");
 }
@@ -119,9 +119,9 @@ static void
 test_last_window_closes (Fixture       *fixture,
                          gconstpointer  data)
 {
-  mocka_dock_model_add_window (fixture->model, WINDOW (1), "a.desktop", NULL);
-  mocka_dock_model_add_window (fixture->model, WINDOW (2), "a.desktop", NULL);
-  mocka_dock_model_add_window (fixture->model, WINDOW (3), "b.desktop", NULL);
+  mocka_dock_model_add_window (fixture->model, WINDOW (1), "a.desktop", NULL, TRUE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (2), "a.desktop", NULL, TRUE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (3), "b.desktop", NULL, TRUE);
 
   mocka_dock_model_remove_window (fixture->model, WINDOW (1));
   assert_order (fixture->model, "a.desktop b.desktop");
@@ -148,17 +148,17 @@ static void
 test_class_change (Fixture       *fixture,
                    gconstpointer  data)
 {
-  mocka_dock_model_add_window (fixture->model, WINDOW (1), "class:Soffice", NULL);
-  mocka_dock_model_add_window (fixture->model, WINDOW (2), "a.desktop", NULL);
+  mocka_dock_model_add_window (fixture->model, WINDOW (1), "class:Soffice", NULL, TRUE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (2), "a.desktop", NULL, TRUE);
 
   mocka_dock_model_add_window (fixture->model, WINDOW (1),
-                               "libreoffice-writer.desktop", NULL);
+                               "libreoffice-writer.desktop", NULL, TRUE);
   assert_order (fixture->model, "a.desktop libreoffice-writer.desktop");
   g_assert_null (mocka_dock_model_lookup (fixture->model, "class:Soffice"));
 
   /* Moving into an app that already has a button joins it. */
   mocka_dock_model_add_window (fixture->model, WINDOW (2),
-                               "libreoffice-writer.desktop", NULL);
+                               "libreoffice-writer.desktop", NULL, TRUE);
   assert_order (fixture->model, "libreoffice-writer.desktop");
   g_assert_cmpuint (mocka_dock_app_get_windows (
       mocka_dock_model_lookup (fixture->model, "libreoffice-writer.desktop"))->len,
@@ -167,8 +167,109 @@ test_class_change (Fixture       *fixture,
   /* Matching again to the same app changes nothing. */
   fixture->changes = 0;
   mocka_dock_model_add_window (fixture->model, WINDOW (2),
-                               "libreoffice-writer.desktop", NULL);
+                               "libreoffice-writer.desktop", NULL, TRUE);
   g_assert_cmpuint (fixture->changes, ==, 0);
+}
+
+static void
+on_windows_changed (MockaDockApp *app,
+                    gpointer      user_data)
+{
+  (*(guint *) user_data)++;
+}
+
+/*
+ * Current workspace mode (SPEC section 5): an app whose windows are all on
+ * other workspaces has no button, and gets it back in its start-order place.
+ */
+static void
+test_hidden_app (Fixture       *fixture,
+                 gconstpointer  data)
+{
+  mocka_dock_model_add_window (fixture->model, WINDOW (1), "a.desktop", NULL, TRUE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (2), "b.desktop", NULL, FALSE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (3), "c.desktop", NULL, TRUE);
+  assert_order (fixture->model, "a.desktop c.desktop");
+
+  /* Hidden apps are still known, and come back between a and c. */
+  g_assert_nonnull (mocka_dock_model_lookup (fixture->model, "b.desktop"));
+  mocka_dock_model_set_window_visible (fixture->model, WINDOW (2), TRUE);
+  assert_order (fixture->model, "a.desktop b.desktop c.desktop");
+  g_assert_cmpuint (fixture->last_position, ==, 1);
+  g_assert_cmpuint (fixture->last_added, ==, 1);
+
+  /* Switching workspace hides a and b. */
+  mocka_dock_model_set_window_visible (fixture->model, WINDOW (1), FALSE);
+  mocka_dock_model_set_window_visible (fixture->model, WINDOW (2), FALSE);
+  assert_order (fixture->model, "c.desktop");
+
+  /* A new app still goes after all apps seen before, hidden or not. */
+  mocka_dock_model_add_window (fixture->model, WINDOW (4), "d.desktop", NULL, TRUE);
+  mocka_dock_model_set_window_visible (fixture->model, WINDOW (1), TRUE);
+  assert_order (fixture->model, "a.desktop c.desktop d.desktop");
+}
+
+/* Counts and clicks use only the shown windows. */
+static void
+test_shown_windows (Fixture       *fixture,
+                    gconstpointer  data)
+{
+  MockaDockApp *app;
+  guint changed = 0;
+  GPtrArray *windows;
+
+  mocka_dock_model_add_window (fixture->model, WINDOW (1), "a.desktop", NULL, TRUE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (2), "a.desktop", NULL, FALSE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (3), "a.desktop", NULL, TRUE);
+  app = mocka_dock_model_lookup (fixture->model, "a.desktop");
+  g_signal_connect (app, "windows-changed", G_CALLBACK (on_windows_changed), &changed);
+
+  windows = mocka_dock_app_get_windows (app);
+  g_assert_cmpuint (windows->len, ==, 2);
+  g_assert_true (g_ptr_array_index (windows, 0) == WINDOW (1));
+  g_assert_true (g_ptr_array_index (windows, 1) == WINDOW (3));
+
+  /* Shown again: back in its original place among the windows. */
+  mocka_dock_model_set_window_visible (fixture->model, WINDOW (2), TRUE);
+  g_assert_cmpuint (windows->len, ==, 3);
+  g_assert_true (g_ptr_array_index (windows, 1) == WINDOW (2));
+  g_assert_cmpuint (changed, ==, 1);
+
+  /* No change, no signal. */
+  mocka_dock_model_set_window_visible (fixture->model, WINDOW (2), TRUE);
+  g_assert_cmpuint (changed, ==, 1);
+}
+
+/* A hidden app is forgotten when its last window closes. */
+static void
+test_hidden_closes (Fixture       *fixture,
+                    gconstpointer  data)
+{
+  mocka_dock_model_add_window (fixture->model, WINDOW (1), "a.desktop", NULL, FALSE);
+  g_assert_cmpuint (fixture->changes, ==, 0);
+
+  mocka_dock_model_remove_window (fixture->model, WINDOW (1));
+  g_assert_null (mocka_dock_model_lookup (fixture->model, "a.desktop"));
+  g_assert_cmpuint (fixture->changes, ==, 0);
+
+  /* Showing a window that is not in the model does nothing. */
+  mocka_dock_model_set_window_visible (fixture->model, WINDOW (1), TRUE);
+  assert_order (fixture->model, "");
+}
+
+/* A window moving to another app keeps its hidden state. */
+static void
+test_hidden_class_change (Fixture       *fixture,
+                          gconstpointer  data)
+{
+  mocka_dock_model_add_window (fixture->model, WINDOW (1), "class:Soffice", NULL, FALSE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (1),
+                               "libreoffice-writer.desktop", NULL, FALSE);
+  assert_order (fixture->model, "");
+  g_assert_null (mocka_dock_model_lookup (fixture->model, "class:Soffice"));
+
+  mocka_dock_model_set_window_visible (fixture->model, WINDOW (1), TRUE);
+  assert_order (fixture->model, "libreoffice-writer.desktop");
 }
 
 static void
@@ -193,6 +294,14 @@ main (int    argc,
               fixture_setup, test_last_window_closes, fixture_teardown);
   g_test_add ("/dock-model/class-change", Fixture, NULL,
               fixture_setup, test_class_change, fixture_teardown);
+  g_test_add ("/dock-model/hidden-app", Fixture, NULL,
+              fixture_setup, test_hidden_app, fixture_teardown);
+  g_test_add ("/dock-model/shown-windows", Fixture, NULL,
+              fixture_setup, test_shown_windows, fixture_teardown);
+  g_test_add ("/dock-model/hidden-closes", Fixture, NULL,
+              fixture_setup, test_hidden_closes, fixture_teardown);
+  g_test_add ("/dock-model/hidden-class-change", Fixture, NULL,
+              fixture_setup, test_hidden_class_change, fixture_teardown);
   g_test_add_func ("/dock-model/key-for", test_key_for);
 
   return g_test_run ();

@@ -9,6 +9,9 @@
  * its app in the dock model. A window is matched again when its class
  * changes and when installed applications change (SPEC section 6), and it
  * leaves the dock while it asks to skip the taskbar (SPEC section 5).
+ *
+ * Unless show-all-workspaces is set, windows on other workspaces are hidden
+ * (SPEC section 5, current workspace mode).
  */
 
 #include "config.h"
@@ -24,9 +27,43 @@ struct _MockaWindowTracker
   WnckScreen *screen;
   MockaAppIndex *index;
   MockaDockModel *model;
+  gboolean show_all_workspaces;
 };
 
+enum
+{
+  PROP_0,
+  PROP_SHOW_ALL_WORKSPACES,
+  N_PROPS
+};
+
+static GParamSpec *properties[N_PROPS];
+
 G_DEFINE_TYPE (MockaWindowTracker, mocka_window_tracker, G_TYPE_OBJECT)
+
+/* On the current workspace, on all workspaces (sticky), or all are shown. */
+static gboolean
+is_shown (MockaWindowTracker *self,
+          WnckWindow         *window)
+{
+  WnckWorkspace *workspace;
+
+  if (self->show_all_workspaces)
+    return TRUE;
+
+  workspace = wnck_screen_get_active_workspace (self->screen);
+  return workspace == NULL || wnck_window_is_on_workspace (window, workspace);
+}
+
+static void
+update_visibility (MockaWindowTracker *self)
+{
+  GList *l;
+
+  for (l = wnck_screen_get_windows (self->screen); l != NULL; l = l->next)
+    mocka_dock_model_set_window_visible (self->model, l->data,
+                                         is_shown (self, l->data));
+}
 
 static void
 update_window (MockaWindowTracker *self,
@@ -48,7 +85,26 @@ update_window (MockaWindowTracker *self,
                                res_class, NULL, NULL, NULL);
   key = mocka_dock_app_key_for (entry, res_class);
 
-  mocka_dock_model_add_window (self->model, window, key, entry);
+  mocka_dock_model_add_window (self->model, window, key, entry,
+                               is_shown (self, window));
+}
+
+static void
+on_workspace_changed (WnckWindow *window,
+                      gpointer    user_data)
+{
+  MockaWindowTracker *self = MOCKA_WINDOW_TRACKER (user_data);
+
+  mocka_dock_model_set_window_visible (self->model, window,
+                                       is_shown (self, window));
+}
+
+static void
+on_active_workspace_changed (WnckScreen    *screen,
+                             WnckWorkspace *previous,
+                             gpointer       user_data)
+{
+  update_visibility (MOCKA_WINDOW_TRACKER (user_data));
 }
 
 static void
@@ -76,6 +132,8 @@ track_window (MockaWindowTracker *self,
                            G_CALLBACK (on_class_changed), self, 0);
   g_signal_connect_object (window, "state-changed",
                            G_CALLBACK (on_state_changed), self, 0);
+  g_signal_connect_object (window, "workspace-changed",
+                           G_CALLBACK (on_workspace_changed), self, 0);
   update_window (self, window);
 }
 
@@ -132,11 +190,62 @@ mocka_window_tracker_dispose (GObject *object)
 }
 
 static void
+mocka_window_tracker_get_property (GObject    *object,
+                                   guint       prop_id,
+                                   GValue     *value,
+                                   GParamSpec *pspec)
+{
+  MockaWindowTracker *self = MOCKA_WINDOW_TRACKER (object);
+
+  switch (prop_id)
+    {
+    case PROP_SHOW_ALL_WORKSPACES:
+      g_value_set_boolean (value, self->show_all_workspaces);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+    }
+}
+
+static void
+mocka_window_tracker_set_property (GObject      *object,
+                                   guint         prop_id,
+                                   const GValue *value,
+                                   GParamSpec   *pspec)
+{
+  MockaWindowTracker *self = MOCKA_WINDOW_TRACKER (object);
+
+  switch (prop_id)
+    {
+    case PROP_SHOW_ALL_WORKSPACES:
+      if (self->show_all_workspaces == g_value_get_boolean (value))
+        return;
+      self->show_all_workspaces = g_value_get_boolean (value);
+      if (self->screen != NULL)
+        update_visibility (self);
+      g_object_notify_by_pspec (object, pspec);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+    }
+}
+
+static void
 mocka_window_tracker_class_init (MockaWindowTrackerClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
   object_class->dispose = mocka_window_tracker_dispose;
+  object_class->get_property = mocka_window_tracker_get_property;
+  object_class->set_property = mocka_window_tracker_set_property;
+
+  /* Setting show-all-workspaces (SPEC section 16). */
+  properties[PROP_SHOW_ALL_WORKSPACES] =
+    g_param_spec_boolean ("show-all-workspaces", NULL, NULL, FALSE,
+                          G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY |
+                          G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 }
 
 static void
@@ -171,6 +280,8 @@ mocka_window_tracker_new (WnckHandle     *wnck,
                     G_CALLBACK (on_window_opened), self);
   g_signal_connect (self->screen, "window-closed",
                     G_CALLBACK (on_window_closed), self);
+  g_signal_connect (self->screen, "active-workspace-changed",
+                    G_CALLBACK (on_active_workspace_changed), self);
   g_signal_connect (self->index, "changed",
                     G_CALLBACK (on_index_changed), self);
 

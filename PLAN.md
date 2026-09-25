@@ -59,8 +59,8 @@ does not take the panel down with it.
 - [x] Icon geometry on each window, so minimize and restore animations go to its button (SPEC section 12)
 - [x] Middle click and Shift + click for a new instance
 - [x] Bar indicator and active app highlight in theme colors
-- [ ] Current-workspace filtering and `show-all-workspaces`, with unit tests for the model
-- [ ] Manual test by maintainer
+- [x] Current-workspace filtering and `show-all-workspaces`, with unit tests for the model
+- [x] Manual test by maintainer
 
 ## M2: Pinning
 
