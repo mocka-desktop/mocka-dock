@@ -15,6 +15,8 @@
 
 #include "dock-button.h"
 
+#include <gio/gdesktopappinfo.h>
+
 #define WNCK_I_KNOW_THIS_IS_UNSTABLE
 #include <libwnck/libwnck.h>
 
@@ -24,6 +26,7 @@ struct _MockaDockButton
 
   MockaDockApp *app;
   GtkWidget *image;
+  GtkGesture *middle_click;
   gint size;
   GtkPositionType popup_side;  /* side of the button that faces the screen */
   WnckWindow *icon_window;     /* fallback apps: window whose icon is shown */
@@ -311,16 +314,76 @@ show_window_list (MockaDockButton *self,
                             button_anchor, menu_anchor, NULL);
 }
 
-/* Plain left click (SPEC section 7). Launching waits for pinning (M2). */
+/*
+ * Starts a new instance of the app. Apps using the class fallback have no
+ * desktop entry and cannot be launched (SPEC section 6, step 6).
+ */
+static void
+launch_new_instance (MockaDockButton *self)
+{
+  MockaAppEntry *entry = mocka_dock_app_get_entry (self->app);
+  g_autoptr(GDesktopAppInfo) info = NULL;
+  g_autoptr(GdkAppLaunchContext) context = NULL;
+  g_autoptr(GError) error = NULL;
+
+  if (entry == NULL)
+    return;
+
+  info = g_desktop_app_info_new_from_filename (entry->path);
+  if (info == NULL)
+    {
+      g_warning ("Cannot read desktop entry %s", entry->path);
+      return;
+    }
+
+  /* Startup notification and the click's time, so the new window gets focus. */
+  context = gdk_display_get_app_launch_context (
+      gtk_widget_get_display (GTK_WIDGET (self)));
+  gdk_app_launch_context_set_timestamp (context, gtk_get_current_event_time ());
+
+  if (!g_app_info_launch (G_APP_INFO (info), NULL,
+                          G_APP_LAUNCH_CONTEXT (context), &error))
+    g_warning ("Cannot launch %s: %s", entry->id, error->message);
+}
+
+static void
+on_middle_click_released (GtkGestureMultiPress *gesture,
+                          gint                  n_press,
+                          gdouble               x,
+                          gdouble               y,
+                          gpointer              user_data)
+{
+  GtkWidget *widget = GTK_WIDGET (user_data);
+
+  /* Only when released over the button, like a normal click. */
+  if (x >= 0 && y >= 0
+      && x < gtk_widget_get_allocated_width (widget)
+      && y < gtk_widget_get_allocated_height (widget))
+    launch_new_instance (MOCKA_DOCK_BUTTON (widget));
+}
+
+/*
+ * Left click (SPEC section 7). Shift + click launches a new instance;
+ * Ctrl + click comes in M5, and launching a pinned app in M2.
+ */
 static void
 mocka_dock_button_clicked (GtkButton *button)
 {
   MockaDockButton *self = MOCKA_DOCK_BUTTON (button);
   GPtrArray *windows = mocka_dock_app_get_windows (self->app);
   GdkModifierType state = 0;
+  GdkModifierType mods;
 
   gtk_get_current_event_state (&state);
-  if (state & gtk_accelerator_get_default_mod_mask ())
+  mods = state & gtk_accelerator_get_default_mod_mask ();
+
+  if (mods == GDK_SHIFT_MASK)
+    {
+      launch_new_instance (self);
+      return;
+    }
+
+  if (mods != 0)
     return;
 
   if (windows->len == 1)
@@ -351,6 +414,7 @@ mocka_dock_button_dispose (GObject *object)
   MockaDockButton *self = MOCKA_DOCK_BUTTON (object);
 
   set_icon_window (self, NULL);
+  g_clear_object (&self->middle_click);
   if (self->app != NULL)
     g_signal_handlers_disconnect_by_data (self->app, self);
   g_clear_object (&self->app);
@@ -378,6 +442,12 @@ mocka_dock_button_init (MockaDockButton *self)
 
   self->image = gtk_image_new ();
   gtk_container_add (GTK_CONTAINER (self), self->image);
+
+  self->middle_click = gtk_gesture_multi_press_new (GTK_WIDGET (self));
+  gtk_gesture_single_set_button (GTK_GESTURE_SINGLE (self->middle_click),
+                                 GDK_BUTTON_MIDDLE);
+  g_signal_connect (self->middle_click, "released",
+                    G_CALLBACK (on_middle_click_released), self);
 
   g_signal_connect (self, "notify::scale-factor",
                     G_CALLBACK (mocka_dock_button_scale_changed), NULL);

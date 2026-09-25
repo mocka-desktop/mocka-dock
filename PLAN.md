@@ -57,7 +57,7 @@ does not take the panel down with it.
 - [x] Buttons with icons, following icon theme changes and HiDPI (HiDPI checked at GDK_SCALE=2, not on a HiDPI screen)
 - [x] Left click behavior, with a plain window list for several windows
 - [x] Icon geometry on each window, so minimize and restore animations go to its button (SPEC section 12)
-- [ ] Middle click and Shift + click for a new instance
+- [x] Middle click and Shift + click for a new instance
 - [ ] Bar indicator and active app highlight in theme colors
 - [ ] Current-workspace filtering and `show-all-workspaces`, with unit tests for the model
 - [ ] Manual test by maintainer
