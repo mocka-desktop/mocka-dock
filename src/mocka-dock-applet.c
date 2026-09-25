@@ -228,6 +228,12 @@ mocka_dock_applet_setup (MockaDockApplet *self)
   self->tracker = mocka_window_tracker_new (self->wnck, self->index,
                                             self->model);
 
+  /* The focused app's button is highlighted (SPEC section 12). */
+  g_signal_connect_object (wnck_handle_get_default_screen (self->wnck),
+                           "active-window-changed",
+                           G_CALLBACK (gtk_widget_queue_draw), self->box,
+                           G_CONNECT_SWAPPED);
+
   gtk_widget_show_all (GTK_WIDGET (self));
 }
 

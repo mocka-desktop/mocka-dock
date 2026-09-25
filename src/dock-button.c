@@ -163,6 +163,7 @@ on_windows_changed (MockaDockApp *app,
   GPtrArray *windows = mocka_dock_app_get_windows (app);
 
   update_icon_geometry (self, TRUE);
+  gtk_widget_queue_draw (GTK_WIDGET (self));
 
   if (mocka_dock_app_get_entry (app) != NULL)
     return;
@@ -186,6 +187,103 @@ mocka_dock_button_set_size (MockaDockButton *self,
   update_fallback_icon (self);
 }
 
+/* The theme's highlight color (SPEC section 12). */
+static void
+get_highlight_color (GtkWidget *widget,
+                     GdkRGBA   *color)
+{
+  GtkStyleContext *context = gtk_widget_get_style_context (widget);
+
+  if (!gtk_style_context_lookup_color (context, "theme_selected_bg_color", color)
+      && !gtk_style_context_lookup_color (context, "selected_bg_color", color))
+    gdk_rgba_parse (color, "#4a90d9");
+}
+
+/* The app has the focused window. */
+static gboolean
+is_active_app (MockaDockButton *self)
+{
+  GPtrArray *windows = mocka_dock_app_get_windows (self->app);
+  guint i;
+
+  for (i = 0; i < windows->len; i++)
+    if (wnck_window_is_active (g_ptr_array_index (windows, i)))
+      return TRUE;
+
+  return FALSE;
+}
+
+/*
+ * Running indicator: a bar on the edge of the button nearest the screen
+ * edge, which is the side opposite to where popups open.
+ */
+static void
+draw_bar (MockaDockButton *self,
+          cairo_t         *cr,
+          const GdkRGBA   *color)
+{
+  gint width = gtk_widget_get_allocated_width (GTK_WIDGET (self));
+  gint height = gtk_widget_get_allocated_height (GTK_WIDGET (self));
+  gint thickness = MAX (2, MIN (width, height) / 16);
+  gint length;
+
+  switch (self->popup_side)
+    {
+    case GTK_POS_BOTTOM:
+      length = width * 3 / 5;
+      cairo_rectangle (cr, (width - length) / 2, 0, length, thickness);
+      break;
+    case GTK_POS_LEFT:
+      length = height * 3 / 5;
+      cairo_rectangle (cr, width - thickness, (height - length) / 2,
+                       thickness, length);
+      break;
+    case GTK_POS_RIGHT:
+      length = height * 3 / 5;
+      cairo_rectangle (cr, 0, (height - length) / 2, thickness, length);
+      break;
+    case GTK_POS_TOP:
+    default:
+      length = width * 3 / 5;
+      cairo_rectangle (cr, (width - length) / 2, height - thickness,
+                       length, thickness);
+      break;
+    }
+
+  gdk_cairo_set_source_rgba (cr, color);
+  cairo_fill (cr);
+}
+
+/*
+ * The focused app's button gets a light fill of the highlight color behind
+ * its icon; running apps get the bar on top.
+ */
+static gboolean
+mocka_dock_button_draw (GtkWidget *widget,
+                        cairo_t   *cr)
+{
+  MockaDockButton *self = MOCKA_DOCK_BUTTON (widget);
+  GdkRGBA color;
+
+  get_highlight_color (widget, &color);
+
+  if (is_active_app (self))
+    {
+      cairo_save (cr);
+      cairo_set_source_rgba (cr, color.red, color.green, color.blue,
+                             color.alpha * 0.3);
+      cairo_paint (cr);
+      cairo_restore (cr);
+    }
+
+  GTK_WIDGET_CLASS (mocka_dock_button_parent_class)->draw (widget, cr);
+
+  if (mocka_dock_app_get_windows (self->app)->len > 0)
+    draw_bar (self, cr, &color);
+
+  return FALSE;
+}
+
 /* Sets where popups open: the side of the button facing away from the panel. */
 void
 mocka_dock_button_set_popup_side (MockaDockButton *self,
@@ -194,6 +292,7 @@ mocka_dock_button_set_popup_side (MockaDockButton *self,
   g_return_if_fail (MOCKA_IS_DOCK_BUTTON (self));
 
   self->popup_side = side;
+  gtk_widget_queue_draw (GTK_WIDGET (self));
 }
 
 /* Brings a window forward, switching to its workspace first if needed. */
@@ -426,9 +525,11 @@ static void
 mocka_dock_button_class_init (MockaDockButtonClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
+  GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
   GtkButtonClass *button_class = GTK_BUTTON_CLASS (klass);
 
   object_class->dispose = mocka_dock_button_dispose;
+  widget_class->draw = mocka_dock_button_draw;
   button_class->clicked = mocka_dock_button_clicked;
 }
 

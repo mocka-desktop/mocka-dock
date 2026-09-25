@@ -58,7 +58,7 @@ does not take the panel down with it.
 - [x] Left click behavior, with a plain window list for several windows
 - [x] Icon geometry on each window, so minimize and restore animations go to its button (SPEC section 12)
 - [x] Middle click and Shift + click for a new instance
-- [ ] Bar indicator and active app highlight in theme colors
+- [x] Bar indicator and active app highlight in theme colors
 - [ ] Current-workspace filtering and `show-all-workspaces`, with unit tests for the model
 - [ ] Manual test by maintainer
 
@@ -100,10 +100,10 @@ does not take the panel down with it.
 - [ ] Super + number shortcuts, with unit tests for mapping a shortcut to a dock position. Also accept synthetic Super + number presses on the root window: a menu bound to Super alone (Brisk Menu) holds the keyboard while Super is down and re-sends other keys that way (found in M0)
 - [ ] Shortcut ownership across docks: the owner holds an X manager selection, other docks watch it and take over when the owner goes away
 - [ ] Mouse wheel and Ctrl + click window cycling, Ctrl + click launching an app that is not running
-- [ ] Attention badge
+- [ ] Attention: three blinks in the highlight color, then a badge until the window is activated
 - [ ] Drag data onto a running app activates it
 - [ ] Icon spacing
-- [ ] Dot indicators and per-window indicators
+- [ ] Dot indicators and per-window indicators (up to four marks, on by default: change the `indicator-per-window` schema default to true)
 - [ ] Manual test by maintainer
 
 ## M6: Optional items
