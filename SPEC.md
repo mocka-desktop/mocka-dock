@@ -1,6 +1,6 @@
 # Mocka Dock Specification
 
-Status: draft 4
+Status: draft 5
 Component: `mocka-dock`
 License: BSD-3-Clause
 
@@ -302,7 +302,8 @@ removed, another dock takes over the grab.
 ### Indicators
 
 - Running apps show an indicator. Styles: bar (default), dots, or none.
-- Optionally, one mark per open window, up to three.
+- One mark per open window, up to four, so apps with several windows stand
+  out. On by default, and can be turned off.
 - Indicators use the theme's highlight color.
 
 ### Active app
@@ -319,8 +320,13 @@ removed, another dock takes over the grab.
 
 ### Attention
 
-- When a window requests attention, its app's button shows a badge. The badge
-  clears when the window is activated.
+- A window requests attention through EWMH `_NET_WM_STATE_DEMANDS_ATTENTION`
+  or the ICCCM urgency hint.
+- Its app's button then blinks in the theme's highlight color three times,
+  about half a second each, and afterwards shows a badge. The badge clears
+  when the window is activated.
+- The blink runs only during those three blinks, so the dock stays idle
+  otherwise (section 17).
 
 ### Themes and scaling
 
@@ -365,7 +371,7 @@ removed, another dock takes over the grab.
 | Key | Meaning | Default |
 |---|---|---|
 | `indicator-style` | `bar`, `dots`, or `none` | `bar` |
-| `indicator-per-window` | One mark per window, up to three | false |
+| `indicator-per-window` | One mark per window, up to four | true |
 | `icon-spacing` | Extra space between buttons | 0 |
 | `show-all-workspaces` | Show windows from all workspaces | false |
 | `show-trash` | Show the trash | false |
