@@ -15,8 +15,8 @@
   <!-- Shared by all docks and other Mocka components (SPEC section 16). -->
   <schema id="org.mocka_desktop.Dock" path="/org/mocka-desktop/dock/">
     <key name="pinned-apps" type="as">
-      <!-- GhostBSD's default set is chosen in M2. -->
-      <default>[]</default>
+      <!-- Distributions may override this, as GhostBSD does to add its software center. -->
+      <default>['caja-browser.desktop', 'firefox.desktop', 'mate-terminal.desktop', 'matecc.desktop']</default>
       <summary>Pinned applications</summary>
       <description>Ordered list of desktop entry IDs kept in the dock.</description>
     </key>

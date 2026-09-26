@@ -23,15 +23,17 @@ order. Tick items as they are completed.
 | `src/keybindings.c` | Super + number shortcuts, grab ownership across docks through an X manager selection |
 | `src/trash.c` | Trash item |
 | `src/undo-popup.c` | Unpin popup with Undo |
-| `data/` | GSettings schemas, `.mate-panel-applet` file, applet service file |
+| `data/` | GSettings schemas, `.mate-panel-applet` file |
 | `tests/` | Unit tests |
 | `docs/test-data/` | Real `WM_CLASS` samples from GhostBSD |
 
 Schemas: `org.mocka_desktop.Dock` (fixed path, shared) and
 `org.mocka_desktop.Dock.Instance` (relocatable, per dock).
 
-The applet runs out of process, so a crash in the X11 capture or grab code
-does not take the panel down with it.
+The applet runs inside mate-panel, as a module the panel loads. It started out
+of process, but the panel does not pass drag and drop on to applets in their
+own process, which SPEC section 10 needs (found in M2). A crash in the dock
+therefore takes the panel down, and the panel restarts.
 
 ## M0: Skeleton and risk checks
 
@@ -66,13 +68,13 @@ does not take the panel down with it.
 
 - [x] `pinned-apps` storage and live updates
 - [x] Pinned apps that are not running, launching them
-- [x] Startup notification ID matching (SPEC section 6, step 5)
-- [ ] Pinned app with windows only on other workspaces: click switches to its window (SPEC section 5)
-- [ ] Pin and unpin from the app menu, undo popup
-- [ ] Drag to reorder, drag to pin, dropped `.desktop` files copied to the user's applications folder, with unit tests for the copy
-- [ ] Two docks share the pinned list and show the same apps in the same order
-- [ ] Launch pulse with startup notification
-- [ ] Choose GhostBSD's default pinned set
+- [x] Startup notification ID matching (SPEC section 6, step 6)
+- [x] Pinned app with windows only on other workspaces: click switches to its window (SPEC section 5)
+- [x] Pin and unpin from the app menu, undo popup
+- [x] Drag to reorder, drag to pin, dropped `.desktop` files copied to the user's applications folder, with unit tests for the copy
+- [x] Two docks share the pinned list and show the same apps in the same order
+- [x] Launch pulse with startup notification
+- [x] Choose the default pinned set (SPEC section 21)
 - [ ] Manual test by maintainer
 
 ## M3: Menus (first alpha)
@@ -82,7 +84,8 @@ does not take the panel down with it.
 - [ ] Dock menu on Ctrl + right click and empty space. Preferences stays hidden until the window exists (M7); settings are changed with `gsettings` meanwhile
 - [ ] Auto-resize and overflow arrows
 - [ ] Manual test by maintainer
-- [ ] Add `x11/mocka-dock` to ghostbsd-ports from the stashed draft, pointing at the alpha
+- [ ] Add `x11/mocka-dock` to ghostbsd-ports from the stashed draft, pointing at the alpha. Update its plist for the in-process module: `lib/mate-panel/libmocka-dock-applet.so` in place of `libexec/mocka-dock-applet` and the D-Bus service file
+- [ ] GhostBSD override for `pinned-apps` adding `software-station.desktop`, as `schemas/92_org.mocka_desktop.Dock.gschema.override` in ghostbsd-mate-settings
 - [ ] Alpha release for GhostBSD testers
 
 ## M4: Thumbnails
