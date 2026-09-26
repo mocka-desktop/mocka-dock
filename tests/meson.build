@@ -24,3 +24,9 @@ test_startup_message = executable('test-startup-message',
   dependencies: core_dep,
 )
 test('startup-message', test_startup_message)
+
+test_recent_match = executable('test-recent-match',
+  'test-recent-match.c',
+  dependencies: core_dep,
+)
+test('recent-match', test_recent_match)

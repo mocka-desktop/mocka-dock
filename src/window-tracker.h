@@ -26,6 +26,8 @@ MockaWindowTracker *mocka_window_tracker_new    (WnckHandle          *wnck,
 
 gboolean            mocka_window_tracker_launch (MockaWindowTracker  *self,
                                                  MockaAppEntry       *entry,
+                                                 const gchar         *action,
+                                                 const gchar * const *uris,
                                                  GdkDisplay          *display,
                                                  guint32              timestamp,
                                                  GError             **error);

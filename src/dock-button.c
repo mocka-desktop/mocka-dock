@@ -18,10 +18,10 @@
 #include <math.h>
 #include <string.h>
 
-#include <glib/gi18n-lib.h>
-
 #define WNCK_I_KNOW_THIS_IS_UNSTABLE
 #include <libwnck/libwnck.h>
+
+#include "app-menu.h"
 
 struct _MockaDockButton
 {
@@ -510,43 +510,10 @@ show_window_list (MockaDockButton *self,
   popup_menu (self, menu);
 }
 
-static void
-on_pin_activate (GtkMenuItem *item,
-                 gpointer     user_data)
-{
-  MockaDockButton *self = MOCKA_DOCK_BUTTON (user_data);
-
-  g_signal_emit (self, signals[mocka_dock_app_get_pinned (self->app)
-                               ? SIGNAL_UNPIN : SIGNAL_PIN], 0);
-}
-
 /*
- * App menu (SPEC section 9.1). For now only Pin to dock or Unpin from dock;
- * the other entries come in M3. Returns NULL when it would be empty, which
- * is the case for apps without a desktop entry.
- */
-static GtkWidget *
-app_menu_new (MockaDockButton *self)
-{
-  GtkWidget *menu;
-  GtkWidget *item;
-
-  if (mocka_dock_app_get_entry (self->app) == NULL)
-    return NULL;
-
-  menu = gtk_menu_new ();
-  item = gtk_menu_item_new_with_mnemonic (mocka_dock_app_get_pinned (self->app)
-                                          ? _("_Unpin from dock")
-                                          : _("_Pin to dock"));
-  g_signal_connect (item, "activate", G_CALLBACK (on_pin_activate), self);
-  gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
-
-  return menu;
-}
-
-/*
- * Right click opens the app menu. Ctrl + right click goes on to the panel's
- * menu (SPEC section 9.3); Shift + right click is the window menu of M3.
+ * Right click opens the app menu (SPEC section 9.1). Ctrl + right click goes
+ * on to the panel's menu (SPEC section 9.3); Shift + right click is the
+ * window menu, still to come.
  */
 static gboolean
 on_button_press (GtkWidget      *widget,
@@ -561,7 +528,7 @@ on_button_press (GtkWidget      *widget,
       || mods != 0)
     return FALSE;
 
-  menu = app_menu_new (self);
+  menu = mocka_app_menu_new (self);
   if (menu == NULL)
     return FALSE;
 
@@ -603,7 +570,7 @@ static void
 launch_new_instance (MockaDockButton *self)
 {
   if (mocka_dock_app_get_entry (self->app) != NULL)
-    g_signal_emit (self, signals[SIGNAL_LAUNCH], 0);
+    g_signal_emit (self, signals[SIGNAL_LAUNCH], 0, NULL, NULL);
 }
 
 static void
@@ -704,7 +671,8 @@ mocka_dock_button_class_init (MockaDockButtonClass *klass)
 
   signals[SIGNAL_LAUNCH] =
     g_signal_new ("launch", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
-                  0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+                  0, NULL, NULL, NULL, G_TYPE_NONE, 2,
+                  G_TYPE_STRING, G_TYPE_STRV);
   signals[SIGNAL_PIN] =
     g_signal_new ("pin", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
                   0, NULL, NULL, NULL, G_TYPE_NONE, 0);

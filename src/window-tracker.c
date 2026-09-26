@@ -636,21 +636,56 @@ change_to_home (gpointer home)
 }
 
 /*
+ * The app with the command of one of its desktop actions in place of its
+ * own, so an action starts like the app itself. NULL when the action has no
+ * command, which is allowed for apps started through D-Bus.
+ */
+static GDesktopAppInfo *
+app_info_for_action (const gchar *path,
+                     const gchar *action)
+{
+  g_autoptr(GKeyFile) keyfile = g_key_file_new ();
+  g_autofree gchar *group = g_strconcat ("Desktop Action ", action, NULL);
+  g_autofree gchar *exec = NULL;
+
+  if (!g_key_file_load_from_file (keyfile, path, G_KEY_FILE_KEEP_TRANSLATIONS,
+                                  NULL))
+    return NULL;
+
+  exec = g_key_file_get_string (keyfile, group, G_KEY_FILE_DESKTOP_KEY_EXEC,
+                                NULL);
+  if (exec == NULL)
+    return NULL;
+
+  g_key_file_set_string (keyfile, G_KEY_FILE_DESKTOP_GROUP,
+                         G_KEY_FILE_DESKTOP_KEY_EXEC, exec);
+  g_key_file_remove_key (keyfile, G_KEY_FILE_DESKTOP_GROUP,
+                         G_KEY_FILE_DESKTOP_KEY_DBUS_ACTIVATABLE, NULL);
+
+  return g_desktop_app_info_new_from_keyfile (keyfile);
+}
+
+/*
  * Launches an app, with startup notification and the time of the click so
- * its window gets focus. The startup ID is remembered, so the app's windows
- * are matched to it even when their class matches no desktop entry (SPEC
- * section 6, step 6).
+ * its window gets focus. With action set, runs that desktop action instead,
+ * and with uris set, opens those files (SPEC section 9.1). The startup ID is
+ * remembered, so the app's windows are matched to it even when their class
+ * matches no desktop entry (SPEC section 6, step 6).
  */
 gboolean
 mocka_window_tracker_launch (MockaWindowTracker  *self,
                              MockaAppEntry       *entry,
+                             const gchar         *action,
+                             const gchar * const *uris,
                              GdkDisplay          *display,
                              guint32              timestamp,
                              GError             **error)
 {
   g_autoptr(GDesktopAppInfo) info = NULL;
   g_autoptr(GdkAppLaunchContext) context = NULL;
+  g_autoptr(GList) uri_list = NULL;
   g_autofree gchar *path = NULL;
+  guint i;
 
   g_return_val_if_fail (MOCKA_IS_WINDOW_TRACKER (self), FALSE);
   g_return_val_if_fail (entry != NULL, FALSE);
@@ -665,6 +700,24 @@ mocka_window_tracker_launch (MockaWindowTracker  *self,
 
   context = gdk_display_get_app_launch_context (display);
   gdk_app_launch_context_set_timestamp (context, timestamp);
+
+  if (action != NULL)
+    {
+      GDesktopAppInfo *action_info = app_info_for_action (entry->path, action);
+
+      if (action_info == NULL)
+        {
+          g_desktop_app_info_launch_action (info, action,
+                                            G_APP_LAUNCH_CONTEXT (context));
+          return TRUE;
+        }
+      g_object_unref (info);
+      info = action_info;
+    }
+
+  for (i = 0; uris != NULL && uris[i] != NULL; i++)
+    uri_list = g_list_append (uri_list, (gpointer) uris[i]);
+
   g_object_set_data_full (G_OBJECT (context), "mocka-desktop-id",
                           g_strdup (entry->id), g_free);
   g_signal_connect (context, "launched", G_CALLBACK (on_launched), self);
@@ -676,7 +729,7 @@ mocka_window_tracker_launch (MockaWindowTracker  *self,
    */
   path = g_desktop_app_info_get_string (info, G_KEY_FILE_DESKTOP_KEY_PATH);
 
-  return g_desktop_app_info_launch_uris_as_manager (info, NULL,
+  return g_desktop_app_info_launch_uris_as_manager (info, uri_list,
       G_APP_LAUNCH_CONTEXT (context), G_SPAWN_SEARCH_PATH,
       path == NULL ? change_to_home : NULL, (gpointer) g_get_home_dir (),
       NULL, NULL, error);

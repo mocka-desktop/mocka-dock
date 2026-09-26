@@ -136,16 +136,21 @@ mocka_dock_applet_change_size (MatePanelApplet *applet,
                          GINT_TO_POINTER (self->size));
 }
 
-/* Launches through the tracker, which remembers the startup ID. */
+/*
+ * Launches through the tracker, which remembers the startup ID. action and
+ * uris come from the app menu (SPEC section 9.1).
+ */
 static void
-on_button_launch (MockaDockButton *button,
-                  gpointer         user_data)
+on_button_launch (MockaDockButton     *button,
+                  const gchar         *action,
+                  const gchar * const *uris,
+                  gpointer             user_data)
 {
   MockaDockApplet *self = MOCKA_DOCK_APPLET (user_data);
   MockaAppEntry *entry = mocka_dock_app_get_entry (mocka_dock_button_get_app (button));
   g_autoptr(GError) error = NULL;
 
-  if (!mocka_window_tracker_launch (self->tracker, entry,
+  if (!mocka_window_tracker_launch (self->tracker, entry, action, uris,
                                     gtk_widget_get_display (GTK_WIDGET (button)),
                                     gtk_get_current_event_time (), &error))
     g_warning ("Cannot launch %s: %s", entry->id, error->message);
