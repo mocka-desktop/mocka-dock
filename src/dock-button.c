@@ -454,7 +454,11 @@ on_menu_deactivate (GtkMenuShell *menu,
                    g_object_ref (menu), g_object_unref);
 }
 
-/* Opens a menu on the side of the button facing away from the panel. */
+/*
+ * Opens a menu on the side of the button facing away from the panel. The
+ * menu's items must be shown already: the window menu hides the ones that
+ * do not apply to the window, such as moves to workspaces that do not exist.
+ */
 static void
 popup_menu (MockaDockButton *self,
             GtkWidget       *menu)
@@ -486,7 +490,6 @@ popup_menu (MockaDockButton *self,
   g_object_set (menu, "anchor-hints",
                 GDK_ANCHOR_FLIP | GDK_ANCHOR_SLIDE | GDK_ANCHOR_RESIZE, NULL);
   g_signal_connect (menu, "deactivate", G_CALLBACK (on_menu_deactivate), NULL);
-  gtk_widget_show_all (menu);
   gtk_menu_popup_at_widget (GTK_MENU (menu), GTK_WIDGET (self),
                             button_anchor, menu_anchor, NULL);
 }
@@ -507,13 +510,32 @@ show_window_list (MockaDockButton *self,
     gtk_menu_shell_append (GTK_MENU_SHELL (menu),
                            window_item_new (g_ptr_array_index (windows, i)));
 
+  gtk_widget_show_all (menu);
   popup_menu (self, menu);
 }
 
 /*
- * Right click opens the app menu (SPEC section 9.1). Ctrl + right click goes
- * on to the panel's menu (SPEC section 9.3); Shift + right click is the
- * window menu, still to come.
+ * Window menu (SPEC section 9.2): the standard one for the app's most
+ * recently active window. A pinned app running only on other workspaces
+ * uses those windows, as a click does. NULL when the app has no windows.
+ */
+static GtkWidget *
+window_menu_new (MockaDockButton *self)
+{
+  GPtrArray *windows = mocka_dock_app_get_windows (self->app);
+
+  if (windows->len == 0)
+    windows = mocka_dock_app_get_all_windows (self->app);
+  if (windows->len == 0)
+    return NULL;
+
+  return wnck_action_menu_new (most_recent_window (windows));
+}
+
+/*
+ * Right click opens the app menu (SPEC section 9.1) and Shift + right click
+ * the window menu, or the app menu when the app is not running. Ctrl + right
+ * click goes on to the panel's menu (SPEC section 9.3).
  */
 static gboolean
 on_button_press (GtkWidget      *widget,
@@ -522,13 +544,18 @@ on_button_press (GtkWidget      *widget,
 {
   MockaDockButton *self = MOCKA_DOCK_BUTTON (widget);
   GdkModifierType mods = event->state & gtk_accelerator_get_default_mod_mask ();
-  GtkWidget *menu;
+  GtkWidget *menu = NULL;
 
-  if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_SECONDARY
-      || mods != 0)
+  if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_SECONDARY)
     return FALSE;
 
-  menu = mocka_app_menu_new (self);
+  if (mods == GDK_SHIFT_MASK)
+    menu = window_menu_new (self);
+  else if (mods != 0)
+    return FALSE;
+
+  if (menu == NULL)
+    menu = mocka_app_menu_new (self);
   if (menu == NULL)
     return FALSE;
 

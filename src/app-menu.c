@@ -250,5 +250,6 @@ mocka_app_menu_new (MockaDockButton *button)
                    G_CALLBACK (on_close_activate), button);
     }
 
+  gtk_widget_show_all (menu);
   return menu;
 }

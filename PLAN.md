@@ -80,12 +80,13 @@ therefore takes the panel down, and the panel restarts.
 ## M3: Menus (first alpha)
 
 - [ ] App menu: desktop actions, recent files, new instance, pin, close
-- [ ] Window menu on Shift + right click
+- [x] Window menu on Shift + right click
 - [ ] Dock menu on Ctrl + right click and empty space. Preferences stays hidden until the window exists (M7); settings are changed with `gsettings` meanwhile
 - [ ] Auto-resize and overflow arrows
 - [ ] Manual test by maintainer
 - [ ] Add `x11/mocka-dock` to ghostbsd-ports from the stashed draft, pointing at the alpha. Update its plist for the in-process module: `lib/mate-panel/libmocka-dock-applet.so` in place of `libexec/mocka-dock-applet` and the D-Bus service file
 - [ ] GhostBSD override for `pinned-apps` adding `software-station.desktop`, as `schemas/92_org.mocka_desktop.Dock.gschema.override` in ghostbsd-mate-settings
+- [ ] User guide on the project wiki, first version for testers: adding the dock to a panel, clicks and menus, pinning, and settings through `gsettings`
 - [ ] Alpha release for GhostBSD testers
 
 ## M4: Thumbnails
@@ -120,6 +121,7 @@ therefore takes the panel down, and the panel restarts.
 - [ ] Preferences window
 - [ ] Translations: English and French (gettext set up in M0)
 - [ ] Man page
+- [ ] User guide on the wiki brought up to date with everything added since the alpha
 - [ ] README update
 - [ ] Performance check: RSS, idle CPU, 20+ windows
 - [ ] Tag 0.1, update the GhostBSD port, submit `x11/mocka-dock` to FreeBSD ports
