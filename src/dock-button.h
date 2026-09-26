@@ -12,6 +12,9 @@
 
 G_BEGIN_DECLS
 
+/* Drag target of a dock button: the app's desktop entry ID. */
+#define MOCKA_DOCK_APP_TARGET "application/x-mocka-dock-app"
+
 #define MOCKA_TYPE_DOCK_BUTTON (mocka_dock_button_get_type ())
 G_DECLARE_FINAL_TYPE (MockaDockButton, mocka_dock_button, MOCKA, DOCK_BUTTON,
                       GtkButton)
@@ -22,5 +25,9 @@ void          mocka_dock_button_set_size      (MockaDockButton *self,
                                                gint             size);
 void          mocka_dock_button_set_popup_side (MockaDockButton *self,
                                                 GtkPositionType  side);
+gboolean      mocka_dock_button_get_screen_rect (MockaDockButton *self,
+                                                 GdkRectangle    *rect);
+void          mocka_dock_button_set_launching (MockaDockButton *self,
+                                               gboolean         launching);
 
 G_END_DECLS

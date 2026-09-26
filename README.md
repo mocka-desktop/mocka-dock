@@ -50,8 +50,9 @@ sudo meson install -C build
 ```
 
 Then right click a MATE panel, choose "Add to Panel", and pick Mocka Dock.
-After installing a new build, restart the applet with
-`pkill -f mocka-dock-applet` and choose Reload when the panel asks.
+
+The dock runs inside mate-panel, so after installing a new build restart the
+panel with `mate-panel --replace &`.
 
 ## Test data
 

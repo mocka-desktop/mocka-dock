@@ -8,12 +8,17 @@
  * One dock button (SPEC section 5). Apps with a desktop entry show the
  * entry's icon from the icon theme, which GTK redraws when the theme or the
  * scale factor changes. Apps using the class fallback show the icon and
- * title of their first window (SPEC section 6, step 6).
+ * title of their first window (SPEC section 6, step 7).
  */
 
 #include "config.h"
 
 #include "dock-button.h"
+
+#include <math.h>
+#include <string.h>
+
+#include <glib/gi18n-lib.h>
 
 #define WNCK_I_KNOW_THIS_IS_UNSTABLE
 #include <libwnck/libwnck.h>
@@ -29,11 +34,15 @@ struct _MockaDockButton
   GtkPositionType popup_side;  /* side of the button that faces the screen */
   WnckWindow *icon_window;     /* fallback apps: window whose icon is shown */
   GdkRectangle geometry;       /* last icon geometry set, in screen pixels */
+  guint pulse_id;              /* tick callback while the app is starting */
+  gint64 pulse_start;          /* frame time the pulse started, in µs */
 };
 
 enum
 {
   SIGNAL_LAUNCH,
+  SIGNAL_PIN,
+  SIGNAL_UNPIN,
   N_SIGNALS
 };
 
@@ -290,6 +299,55 @@ mocka_dock_button_draw (GtkWidget *widget,
   return FALSE;
 }
 
+/* Pulse period, in microseconds: about once a second (SPEC section 7). */
+#define PULSE_PERIOD 1000000
+
+/* The icon fades between full and faint once per period. */
+static gboolean
+on_pulse_tick (GtkWidget     *widget,
+               GdkFrameClock *clock,
+               gpointer       user_data)
+{
+  MockaDockButton *self = MOCKA_DOCK_BUTTON (widget);
+  gint64 now = gdk_frame_clock_get_frame_time (clock);
+  gdouble phase;
+
+  if (self->pulse_start == 0)
+    self->pulse_start = now;
+
+  phase = (gdouble) ((now - self->pulse_start) % PULSE_PERIOD) / PULSE_PERIOD;
+  gtk_widget_set_opacity (self->image, 0.65 + 0.35 * cos (2 * G_PI * phase));
+
+  return G_SOURCE_CONTINUE;
+}
+
+/*
+ * Pulses the icon while the app is starting (SPEC section 7). The
+ * animation runs only then, so the dock stays idle otherwise.
+ */
+void
+mocka_dock_button_set_launching (MockaDockButton *self,
+                                 gboolean         launching)
+{
+  g_return_if_fail (MOCKA_IS_DOCK_BUTTON (self));
+
+  if (launching == (self->pulse_id != 0))
+    return;
+
+  if (launching)
+    {
+      self->pulse_start = 0;
+      self->pulse_id = gtk_widget_add_tick_callback (GTK_WIDGET (self),
+                                                     on_pulse_tick, NULL, NULL);
+    }
+  else
+    {
+      gtk_widget_remove_tick_callback (GTK_WIDGET (self), self->pulse_id);
+      self->pulse_id = 0;
+      gtk_widget_set_opacity (self->image, 1.0);
+    }
+}
+
 /* Sets where popups open: the side of the button facing away from the panel. */
 void
 mocka_dock_button_set_popup_side (MockaDockButton *self,
@@ -314,6 +372,24 @@ activate_window (WnckWindow *window,
     wnck_workspace_activate (workspace, time);
 
   wnck_window_activate (window, time);
+}
+
+/*
+ * The most recently active of these windows: the highest in the stacking
+ * order, since the window manager raises a window when it is activated.
+ */
+static WnckWindow *
+most_recent_window (GPtrArray *windows)
+{
+  WnckScreen *screen = wnck_window_get_screen (g_ptr_array_index (windows, 0));
+  GList *l;
+
+  for (l = g_list_last (wnck_screen_get_windows_stacked (screen));
+       l != NULL; l = l->prev)
+    if (g_ptr_array_find (windows, l->data, NULL))
+      return l->data;
+
+  return g_ptr_array_index (windows, windows->len - 1);
 }
 
 /* SPEC section 7: activate the window, or minimize it when it is focused. */
@@ -368,26 +444,22 @@ static void
 on_menu_deactivate (GtkMenuShell *menu,
                     gpointer      user_data)
 {
-  /* Items are activated after the menu deactivates, so destroy it later. */
-  g_idle_add (destroy_menu, menu);
+  /*
+   * Items are activated after the menu deactivates, so destroy it later.
+   * Hold a reference: the button, and the menu with it, may already be
+   * destroyed by then, for example after unpinning an app that is not
+   * running.
+   */
+  g_idle_add_full (G_PRIORITY_DEFAULT_IDLE, destroy_menu,
+                   g_object_ref (menu), g_object_unref);
 }
 
-/*
- * Several windows: a list of their titles, standing in for the thumbnails
- * of SPEC section 8 until M4. Clicking the button again closes it, because
- * the open list takes that click.
- */
+/* Opens a menu on the side of the button facing away from the panel. */
 static void
-show_window_list (MockaDockButton *self,
-                  GPtrArray       *windows)
+popup_menu (MockaDockButton *self,
+            GtkWidget       *menu)
 {
-  GtkWidget *menu = gtk_menu_new ();
   GdkGravity button_anchor, menu_anchor;
-  guint i;
-
-  for (i = 0; i < windows->len; i++)
-    gtk_menu_shell_append (GTK_MENU_SHELL (menu),
-                           window_item_new (g_ptr_array_index (windows, i)));
 
   switch (self->popup_side)
     {
@@ -420,10 +492,112 @@ show_window_list (MockaDockButton *self,
 }
 
 /*
+ * Several windows: a list of their titles, standing in for the thumbnails
+ * of SPEC section 8 until M4. Clicking the button again closes it, because
+ * the open list takes that click.
+ */
+static void
+show_window_list (MockaDockButton *self,
+                  GPtrArray       *windows)
+{
+  GtkWidget *menu = gtk_menu_new ();
+  guint i;
+
+  for (i = 0; i < windows->len; i++)
+    gtk_menu_shell_append (GTK_MENU_SHELL (menu),
+                           window_item_new (g_ptr_array_index (windows, i)));
+
+  popup_menu (self, menu);
+}
+
+static void
+on_pin_activate (GtkMenuItem *item,
+                 gpointer     user_data)
+{
+  MockaDockButton *self = MOCKA_DOCK_BUTTON (user_data);
+
+  g_signal_emit (self, signals[mocka_dock_app_get_pinned (self->app)
+                               ? SIGNAL_UNPIN : SIGNAL_PIN], 0);
+}
+
+/*
+ * App menu (SPEC section 9.1). For now only Pin to dock or Unpin from dock;
+ * the other entries come in M3. Returns NULL when it would be empty, which
+ * is the case for apps without a desktop entry.
+ */
+static GtkWidget *
+app_menu_new (MockaDockButton *self)
+{
+  GtkWidget *menu;
+  GtkWidget *item;
+
+  if (mocka_dock_app_get_entry (self->app) == NULL)
+    return NULL;
+
+  menu = gtk_menu_new ();
+  item = gtk_menu_item_new_with_mnemonic (mocka_dock_app_get_pinned (self->app)
+                                          ? _("_Unpin from dock")
+                                          : _("_Pin to dock"));
+  g_signal_connect (item, "activate", G_CALLBACK (on_pin_activate), self);
+  gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
+
+  return menu;
+}
+
+/*
+ * Right click opens the app menu. Ctrl + right click goes on to the panel's
+ * menu (SPEC section 9.3); Shift + right click is the window menu of M3.
+ */
+static gboolean
+on_button_press (GtkWidget      *widget,
+                 GdkEventButton *event,
+                 gpointer        user_data)
+{
+  MockaDockButton *self = MOCKA_DOCK_BUTTON (widget);
+  GdkModifierType mods = event->state & gtk_accelerator_get_default_mod_mask ();
+  GtkWidget *menu;
+
+  if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_SECONDARY
+      || mods != 0)
+    return FALSE;
+
+  menu = app_menu_new (self);
+  if (menu == NULL)
+    return FALSE;
+
+  popup_menu (self, menu);
+  return TRUE;
+}
+
+/* The button's position on the screen, in logical pixels. */
+gboolean
+mocka_dock_button_get_screen_rect (MockaDockButton *self,
+                                   GdkRectangle    *rect)
+{
+  GtkWidget *widget = GTK_WIDGET (self);
+  GtkWidget *toplevel = gtk_widget_get_toplevel (widget);
+  gint x, y, origin_x, origin_y;
+
+  g_return_val_if_fail (MOCKA_IS_DOCK_BUTTON (self), FALSE);
+
+  if (!gtk_widget_get_mapped (widget)
+      || !gtk_widget_translate_coordinates (widget, toplevel, 0, 0, &x, &y))
+    return FALSE;
+
+  gdk_window_get_origin (gtk_widget_get_window (toplevel), &origin_x, &origin_y);
+  rect->x = origin_x + x;
+  rect->y = origin_y + y;
+  rect->width = gtk_widget_get_allocated_width (widget);
+  rect->height = gtk_widget_get_allocated_height (widget);
+
+  return TRUE;
+}
+
+/*
  * Asks for a new instance of the app through the "launch" signal; the
  * applet launches it, so the dock can recognize its windows by startup ID.
  * Apps using the class fallback have no desktop entry and cannot be
- * launched (SPEC section 6, step 6).
+ * launched (SPEC section 6, step 7).
  */
 static void
 launch_new_instance (MockaDockButton *self)
@@ -449,7 +623,8 @@ on_middle_click_released (GtkGestureMultiPress *gesture,
 }
 
 /*
- * Left click (SPEC section 7). An app that is not running is launched, and
+ * Left click (SPEC section 7). An app that is not running is launched, one
+ * running only on other workspaces is switched to, and
  * Shift + click launches a new instance. Ctrl + click comes in M5.
  */
 static void
@@ -473,7 +648,15 @@ mocka_dock_button_clicked (GtkButton *button)
     return;
 
   if (windows->len == 0)
-    launch_new_instance (self);
+    {
+      GPtrArray *all = mocka_dock_app_get_all_windows (self->app);
+
+      /* Pinned app running only on other workspaces (SPEC section 5). */
+      if (all->len > 0)
+        activate_window (most_recent_window (all), gtk_get_current_event_time ());
+      else
+        launch_new_instance (self);
+    }
   else if (windows->len == 1)
     toggle_window (g_ptr_array_index (windows, 0), gtk_get_current_event_time ());
   else if (windows->len > 1)
@@ -522,6 +705,12 @@ mocka_dock_button_class_init (MockaDockButtonClass *klass)
   signals[SIGNAL_LAUNCH] =
     g_signal_new ("launch", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
                   0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+  signals[SIGNAL_PIN] =
+    g_signal_new ("pin", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
+                  0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+  signals[SIGNAL_UNPIN] =
+    g_signal_new ("unpin", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
+                  0, NULL, NULL, NULL, G_TYPE_NONE, 0);
   widget_class->draw = mocka_dock_button_draw;
   button_class->clicked = mocka_dock_button_clicked;
 }
@@ -548,6 +737,27 @@ mocka_dock_button_init (MockaDockButton *self)
   g_signal_connect_after (self, "size-allocate",
                           G_CALLBACK (on_size_allocate), NULL);
   g_signal_connect_after (self, "map", G_CALLBACK (on_map), NULL);
+  g_signal_connect (self, "button-press-event",
+                    G_CALLBACK (on_button_press), NULL);
+}
+
+static const GtkTargetEntry drag_targets[] = {
+  { (gchar *) MOCKA_DOCK_APP_TARGET, GTK_TARGET_SAME_APP, 0 },
+};
+
+/* The dragged data is the app's desktop entry ID. */
+static void
+on_drag_data_get (GtkWidget        *widget,
+                  GdkDragContext   *context,
+                  GtkSelectionData *data,
+                  guint             info,
+                  guint             time,
+                  gpointer          user_data)
+{
+  MockaAppEntry *entry = mocka_dock_app_get_entry (MOCKA_DOCK_BUTTON (widget)->app);
+
+  gtk_selection_data_set (data, gtk_selection_data_get_target (data), 8,
+                          (const guchar *) entry->id, strlen (entry->id));
 }
 
 GtkWidget *
@@ -575,6 +785,13 @@ mocka_dock_button_new (MockaDockApp *app)
       gtk_image_set_from_gicon (GTK_IMAGE (self->image), icon,
                                 GTK_ICON_SIZE_BUTTON);
       gtk_widget_set_tooltip_text (GTK_WIDGET (self), entry->name);
+
+      /* Dragging moves or pins the app (SPEC section 10). */
+      gtk_drag_source_set (GTK_WIDGET (self), GDK_BUTTON1_MASK,
+                           drag_targets, G_N_ELEMENTS (drag_targets),
+                           GDK_ACTION_MOVE);
+      gtk_drag_source_set_icon_gicon (GTK_WIDGET (self), icon);
+      g_signal_connect (self, "drag-data-get", G_CALLBACK (on_drag_data_get), NULL);
     }
 
   g_signal_connect (app, "windows-changed",

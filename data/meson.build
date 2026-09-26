@@ -1,5 +1,5 @@
 applet_conf = configuration_data()
-applet_conf.set('LIBEXECDIR', libexecdir)
+applet_conf.set('APPLET_LOCATION', applet_libdir / 'libmocka-dock-applet.so')
 
 applet_desktop_in = configure_file(
   input: 'org.mocka_desktop.DockApplet.mate-panel-applet.desktop.in',
@@ -15,14 +15,6 @@ i18n.merge_file(
   args: ['--keyword=Description'],
   install: true,
   install_dir: datadir / 'mate-panel' / 'applets',
-)
-
-configure_file(
-  input: 'org.mate.panel.applet.MockaDockAppletFactory.service.in',
-  output: 'org.mate.panel.applet.MockaDockAppletFactory.service',
-  configuration: applet_conf,
-  install: true,
-  install_dir: datadir / 'dbus-1' / 'services',
 )
 
 install_data(

@@ -13,7 +13,8 @@ i18n = import('i18n')
 
 prefix = get_option('prefix')
 datadir = prefix / get_option('datadir')
-libexecdir = prefix / get_option('libexecdir')
+libdir = prefix / get_option('libdir')
+applet_libdir = libdir / 'mate-panel'
 localedir = prefix / get_option('localedir')
 
 gettext_package = meson.project_name()
@@ -35,6 +36,7 @@ x11_dep = dependency('x11')
 xcomposite_dep = dependency('xcomposite')
 xdamage_dep = dependency('xdamage')
 cairo_xlib_dep = dependency('cairo-xlib')
+math_dep = cc.find_library('m', required: false)
 
 conf = configuration_data()
 conf.set_quoted('PACKAGE_VERSION', meson.project_version())

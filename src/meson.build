@@ -16,12 +16,14 @@ core_dep = declare_dependency(
   dependencies: [gio_dep],
 )
 
-executable('mocka-dock-applet',
+shared_module('mocka-dock-applet',
   'mocka-dock-applet.c',
   'dock-button.c',
+  'undo-popup.c',
   'window-tracker.c',
   include_directories: config_inc,
-  dependencies: [core_dep, gtk_dep, applet_dep, wnck_dep, x11_dep, cairo_xlib_dep],
+  dependencies: [core_dep, gtk_dep, applet_dep, wnck_dep, x11_dep, cairo_xlib_dep,
+                 math_dep],
   install: true,
-  install_dir: libexecdir,
+  install_dir: applet_libdir,
 )

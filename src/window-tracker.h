@@ -29,5 +29,7 @@ gboolean            mocka_window_tracker_launch (MockaWindowTracker  *self,
                                                  GdkDisplay          *display,
                                                  guint32              timestamp,
                                                  GError             **error);
+gboolean            mocka_window_tracker_is_launching (MockaWindowTracker *self,
+                                                       const gchar        *desktop_id);
 
 G_END_DECLS

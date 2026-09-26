@@ -1,6 +1,7 @@
 [Applet Factory]
 Id=MockaDockAppletFactory
-Location=@LIBEXECDIR@/mocka-dock-applet
+InProcess=true
+Location=@APPLET_LOCATION@
 Name=Mocka Dock Factory
 Description=Factory for Mocka Dock
 
