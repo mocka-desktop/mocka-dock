@@ -6,6 +6,7 @@
 
 #include "config.h"
 
+#include <math.h>
 #include <string.h>
 
 #include <glib/gi18n-lib.h>
@@ -38,7 +39,14 @@ struct _MockaDockApplet
 {
   MatePanelApplet parent_instance;
 
-  GtkWidget *box;
+  GtkWidget *outer;             /* start arrow, scroller, end arrow */
+  GtkWidget *scroller;          /* scrolls the buttons when they do not fit */
+  GtkWidget *box;               /* the app buttons */
+  GtkWidget *arrow_start;
+  GtkWidget *arrow_end;
+  gint size_hints[2];           /* kept: the panel reads them later */
+  GSettings *object_settings;   /* the panel's settings for the dock */
+  GSettings *toplevel_settings; /* the panel's own settings */
   gint size;
   GtkPositionType popup_side;
 
@@ -56,6 +64,8 @@ struct _MockaDockApplet
 };
 
 G_DEFINE_TYPE (MockaDockApplet, mocka_dock_applet, PANEL_TYPE_APPLET)
+
+static void update_size_hints (MockaDockApplet *self);
 
 static GtkOrientation
 orientation_for_orient (MatePanelAppletOrient orient)
@@ -98,15 +108,40 @@ set_button_popup_side (GtkWidget *button,
                                     GPOINTER_TO_INT (user_data));
 }
 
+/* The scroller's adjustment along the dock's length. */
+static GtkAdjustment *
+get_adjustment (MockaDockApplet *self)
+{
+  GtkScrolledWindow *scroller = GTK_SCROLLED_WINDOW (self->scroller);
+
+  return gtk_orientable_get_orientation (GTK_ORIENTABLE (self->box))
+         == GTK_ORIENTATION_HORIZONTAL
+         ? gtk_scrolled_window_get_hadjustment (scroller)
+         : gtk_scrolled_window_get_vadjustment (scroller);
+}
+
 static void
 apply_orient (MockaDockApplet       *self,
               MatePanelAppletOrient  orient)
 {
-  gtk_orientable_set_orientation (GTK_ORIENTABLE (self->box),
-                                  orientation_for_orient (orient));
+  GtkOrientation orientation = orientation_for_orient (orient);
+  gboolean horizontal = orientation == GTK_ORIENTATION_HORIZONTAL;
+
+  gtk_orientable_set_orientation (GTK_ORIENTABLE (self->box), orientation);
+  gtk_orientable_set_orientation (GTK_ORIENTABLE (self->outer), orientation);
+  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (self->scroller),
+                                  horizontal ? GTK_POLICY_EXTERNAL : GTK_POLICY_NEVER,
+                                  horizontal ? GTK_POLICY_NEVER : GTK_POLICY_EXTERNAL);
+  gtk_button_set_image (GTK_BUTTON (self->arrow_start),
+      gtk_image_new_from_icon_name (horizontal ? "pan-start-symbolic" : "pan-up-symbolic",
+                                    GTK_ICON_SIZE_MENU));
+  gtk_button_set_image (GTK_BUTTON (self->arrow_end),
+      gtk_image_new_from_icon_name (horizontal ? "pan-end-symbolic" : "pan-down-symbolic",
+                                    GTK_ICON_SIZE_MENU));
   self->popup_side = popup_side_for_orient (orient);
   gtk_container_foreach (GTK_CONTAINER (self->box), set_button_popup_side,
                          GINT_TO_POINTER (self->popup_side));
+  update_size_hints (self);
 }
 
 static void
@@ -134,6 +169,7 @@ mocka_dock_applet_change_size (MatePanelApplet *applet,
   self->size = size;
   gtk_container_foreach (GTK_CONTAINER (self->box), set_button_size,
                          GINT_TO_POINTER (self->size));
+  update_size_hints (self);
 }
 
 /*
@@ -481,6 +517,34 @@ on_drag_drop (GtkWidget      *widget,
 }
 
 /*
+ * The gap of the pinned-apps setting matching a gap between the pinned
+ * buttons. They differ when the setting holds apps that are not installed,
+ * which have no button: the gap is placed right before the ID of the button
+ * after it, or at the end of the setting after the last button.
+ */
+static guint
+setting_gap (MockaDockApplet *self,
+             guint            button_gap)
+{
+  g_auto(GStrv) ids = g_settings_get_strv (self->shared_settings, "pinned-apps");
+  g_autoptr(MockaDockApp) app = NULL;
+  MockaAppEntry *entry;
+  guint i;
+
+  if (button_gap >= count_pinned (self))
+    return G_MAXUINT;
+
+  app = g_list_model_get_item (G_LIST_MODEL (self->model), button_gap);
+  entry = mocka_dock_app_get_entry (app);
+
+  for (i = 0; ids[i] != NULL; i++)
+    if (g_str_equal (ids[i], entry->id))
+      return i;
+
+  return G_MAXUINT;
+}
+
+/*
  * Pins each dropped desktop entry file, in order, from the drop gap on.
  * Files outside the applications directories are first copied into the
  * user's own. Returns the number pinned.
@@ -494,6 +558,7 @@ pin_dropped_files (MockaDockApplet  *self,
                                                  "applications", NULL);
   g_autoptr(GPtrArray) app_dirs = g_ptr_array_new_with_free_func (g_free);
   g_autoptr(GPtrArray) ids = g_ptr_array_new_with_free_func (g_free);
+  guint gap;
   guint i;
 
   g_ptr_array_add (app_dirs, g_strdup (user_dir));
@@ -526,8 +591,9 @@ pin_dropped_files (MockaDockApplet  *self,
   /* Copies are new applications; read them before pinning. */
   mocka_app_index_reload (self->index);
 
+  gap = setting_gap (self, self->drop_gap);
   for (i = 0; i < ids->len; i++)
-    pin_at (self, g_ptr_array_index (ids, i), self->drop_gap + i);
+    pin_at (self, g_ptr_array_index (ids, i), gap == G_MAXUINT ? gap : gap + i);
 
   return ids->len;
 }
@@ -553,7 +619,7 @@ on_drag_data_received (GtkWidget        *widget,
       g_autofree gchar *id = g_strndup ((const gchar *) gtk_selection_data_get_data (data),
                                         gtk_selection_data_get_length (data));
 
-      pin_at (self, id, self->drop_gap);
+      pin_at (self, id, setting_gap (self, self->drop_gap));
       success = TRUE;
     }
   else if (info == DROP_TARGET_URI_LIST)
@@ -626,6 +692,191 @@ on_items_changed (GListModel *list,
       gtk_box_reorder_child (GTK_BOX (self->box), button, position + i);
       gtk_widget_show_all (button);
     }
+
+  update_size_hints (self);
+}
+
+/*
+ * Overflow arrows (SPEC section 3): shown only while the buttons do not
+ * fit, each disabled once the buttons are scrolled to its end.
+ */
+static void
+update_arrows (MockaDockApplet *self)
+{
+  GtkAdjustment *adjustment = get_adjustment (self);
+  gdouble lower = gtk_adjustment_get_lower (adjustment);
+  gdouble upper = gtk_adjustment_get_upper (adjustment);
+  gdouble page = gtk_adjustment_get_page_size (adjustment);
+  gdouble value = gtk_adjustment_get_value (adjustment);
+  gboolean shown = gtk_widget_get_visible (self->arrow_start);
+  gdouble room = page;
+
+  /* The arrows take room of their own, which the buttons get back without them. */
+  if (shown)
+    room += along (self, gtk_widget_get_allocated_width (self->arrow_start),
+                   gtk_widget_get_allocated_height (self->arrow_start))
+            + along (self, gtk_widget_get_allocated_width (self->arrow_end),
+                     gtk_widget_get_allocated_height (self->arrow_end));
+
+  gtk_widget_set_visible (self->arrow_start, upper - lower > room + 0.5);
+  gtk_widget_set_visible (self->arrow_end, upper - lower > room + 0.5);
+  gtk_widget_set_sensitive (self->arrow_start, value > lower + 0.5);
+  gtk_widget_set_sensitive (self->arrow_end, value < upper - page - 0.5);
+}
+
+/* Each click scrolls by one button, to the next button boundary. */
+static void
+scroll_by_button (MockaDockApplet *self,
+                  gint             direction)
+{
+  GtkAdjustment *adjustment = get_adjustment (self);
+  gdouble value = gtk_adjustment_get_value (adjustment);
+  gdouble step = MAX (self->size, 1);
+
+  if (direction > 0)
+    value = (floor (value / step + 0.01) + 1) * step;
+  else
+    value = (ceil (value / step - 0.01) - 1) * step;
+
+  gtk_adjustment_set_value (adjustment, value);
+}
+
+static void
+on_arrow_start_clicked (GtkButton *button,
+                        gpointer   user_data)
+{
+  scroll_by_button (MOCKA_DOCK_APPLET (user_data), -1);
+}
+
+static void
+on_arrow_end_clicked (GtkButton *button,
+                      gpointer   user_data)
+{
+  scroll_by_button (MOCKA_DOCK_APPLET (user_data), 1);
+}
+
+/* The mouse wheel never scrolls the dock; it is kept for window cycling. */
+static gboolean
+on_scroller_scroll (GtkWidget      *widget,
+                    GdkEventScroll *event,
+                    gpointer        user_data)
+{
+  return TRUE;
+}
+
+static GtkWidget *
+arrow_new (MockaDockApplet *self,
+           GCallback        callback)
+{
+  GtkWidget *arrow = gtk_button_new ();
+
+  gtk_button_set_relief (GTK_BUTTON (arrow), GTK_RELIEF_NONE);
+  gtk_widget_set_can_focus (arrow, FALSE);
+  gtk_widget_set_no_show_all (arrow, TRUE);
+  gtk_style_context_add_class (gtk_widget_get_style_context (arrow),
+                               "mocka-dock-arrow");
+  g_signal_connect (arrow, "clicked", callback, self);
+
+  return arrow;
+}
+
+/* Room for one arrow along the dock: a menu icon with a little padding. */
+#define ARROW_LENGTH 20
+
+/* The length of the monitor the dock is on, along the dock. */
+static gint
+monitor_length (MockaDockApplet *self)
+{
+  GdkDisplay *display = gtk_widget_get_display (GTK_WIDGET (self));
+  GdkWindow *window = gtk_widget_get_window (GTK_WIDGET (self));
+  GdkMonitor *monitor = NULL;
+  GdkRectangle geometry;
+
+  if (window != NULL)
+    monitor = gdk_display_get_monitor_at_window (display, window);
+  if (monitor == NULL)
+    monitor = gdk_display_get_primary_monitor (display);
+  if (monitor == NULL)
+    monitor = gdk_display_get_monitor (display, 0);
+  if (monitor == NULL)
+    return 0;
+
+  gdk_monitor_get_geometry (monitor, &geometry);
+  return gtk_orientable_get_orientation (GTK_ORIENTABLE (self->box))
+         == GTK_ORIENTATION_HORIZONTAL ? geometry.width : geometry.height;
+}
+
+/*
+ * Tells the panel which lengths suit the dock (SPEC section 3). On an
+ * expanded panel the dock takes all the free room, up to the monitor's
+ * length. Otherwise it asks for the length of its buttons, since the panel
+ * grows to whatever its applets ask for. Either way it can shrink to one
+ * button between the two arrows when the panel has no room left.
+ */
+static void
+update_size_hints (MockaDockApplet *self)
+{
+  g_autoptr(GList) buttons = gtk_container_get_children (GTK_CONTAINER (self->box));
+  gint size = MAX (self->size, 1);
+
+  /*
+   * Buttons are squares of the panel's size. Worked out rather than asked
+   * of GTK, which gives no size for widgets that are not shown yet.
+   */
+  gint wanted = g_list_length (buttons) * size;
+  gint least = size + 2 * ARROW_LENGTH;
+
+  if (self->toplevel_settings != NULL
+      && g_settings_get_boolean (self->toplevel_settings, "expand"))
+    wanted = MAX (wanted, monitor_length (self));
+
+  /* The panel keeps a pointer to the hints, not a copy. */
+  self->size_hints[0] = MAX (wanted, 1);
+  self->size_hints[1] = MIN (least, self->size_hints[0]);
+  mate_panel_applet_set_size_hints (MATE_PANEL_APPLET (self), self->size_hints,
+                                    G_N_ELEMENTS (self->size_hints), 0);
+}
+
+/*
+ * Follows the settings of the panel the dock is on, which change when the
+ * panel is expanded or the dock is moved to another panel. They belong to
+ * mate-panel: the dock's object is the parent of its preferences path.
+ */
+static void
+watch_panel (MockaDockApplet *self)
+{
+  g_autofree gchar *prefs_path = mate_panel_applet_get_preferences_path (MATE_PANEL_APPLET (self));
+  g_autofree gchar *object_path = NULL;
+  g_autofree gchar *toplevel_id = NULL;
+  g_autofree gchar *toplevel_path = NULL;
+  gsize length;
+
+  g_clear_object (&self->toplevel_settings);
+
+  if (self->object_settings == NULL)
+    {
+      if (prefs_path == NULL || !g_str_has_suffix (prefs_path, "/prefs/"))
+        return;
+
+      length = strlen (prefs_path) - strlen ("prefs/");
+      object_path = g_strndup (prefs_path, length);
+      self->object_settings = g_settings_new_with_path ("org.mate.panel.object",
+                                                        object_path);
+      g_signal_connect_swapped (self->object_settings, "changed::toplevel-id",
+                                G_CALLBACK (watch_panel), self);
+    }
+
+  toplevel_id = g_settings_get_string (self->object_settings, "toplevel-id");
+  if (toplevel_id[0] != '\0')
+    {
+      toplevel_path = g_strdup_printf ("/org/mate/panel/toplevels/%s/", toplevel_id);
+      self->toplevel_settings = g_settings_new_with_path ("org.mate.panel.toplevel",
+                                                          toplevel_path);
+      g_signal_connect_swapped (self->toplevel_settings, "changed::expand",
+                                G_CALLBACK (update_size_hints), self);
+    }
+
+  update_size_hints (self);
 }
 
 static void
@@ -635,7 +886,11 @@ load_style (void)
 
   /* Let the square size set the button size, not the theme's padding. */
   gtk_css_provider_load_from_data (provider,
-      ".mocka-dock-button { padding: 0; min-width: 0; min-height: 0; }",
+      ".mocka-dock-button { padding: 0; min-width: 0; min-height: 0; }"
+      ".mocka-dock-arrow { padding: 0 2px; min-width: 0; min-height: 0; }"
+      /* The panel draws the background behind the scrolled buttons. */
+      ".mocka-dock-scroller, .mocka-dock-scroller viewport"
+      " { background: none; border: none; box-shadow: none; }",
       -1, NULL);
   gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
       GTK_STYLE_PROVIDER (provider),
@@ -716,6 +971,8 @@ mocka_dock_applet_dispose (GObject *object)
   MockaDockApplet *self = MOCKA_DOCK_APPLET (object);
 
   close_undo_popup (self);
+  g_clear_object (&self->toplevel_settings);
+  g_clear_object (&self->object_settings);
   g_clear_object (&self->settings);
   g_clear_object (&self->shared_settings);
   g_clear_object (&self->tracker);
@@ -749,8 +1006,42 @@ mocka_dock_applet_init (MockaDockApplet *self)
   self->wnck = wnck_handle_new (WNCK_CLIENT_TYPE_PAGER);
   wnck_handle_set_default_icon_size (self->wnck, WINDOW_ICON_SIZE);
 
+  self->outer = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+  gtk_container_add (GTK_CONTAINER (self), self->outer);
+
+  self->arrow_start = arrow_new (self, G_CALLBACK (on_arrow_start_clicked));
+  gtk_box_pack_start (GTK_BOX (self->outer), self->arrow_start, FALSE, FALSE, 0);
+
+  self->scroller = gtk_scrolled_window_new (NULL, NULL);
+  gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (self->scroller),
+                                       GTK_SHADOW_NONE);
+  /* Ask for the length of all buttons, while accepting less. */
+  gtk_scrolled_window_set_propagate_natural_width (GTK_SCROLLED_WINDOW (self->scroller),
+                                                   TRUE);
+  gtk_scrolled_window_set_propagate_natural_height (GTK_SCROLLED_WINDOW (self->scroller),
+                                                    TRUE);
+  gtk_style_context_add_class (gtk_widget_get_style_context (self->scroller),
+                               "mocka-dock-scroller");
+  g_signal_connect (self->scroller, "scroll-event",
+                    G_CALLBACK (on_scroller_scroll), NULL);
+  gtk_box_pack_start (GTK_BOX (self->outer), self->scroller, TRUE, TRUE, 0);
+
+  self->arrow_end = arrow_new (self, G_CALLBACK (on_arrow_end_clicked));
+  gtk_box_pack_start (GTK_BOX (self->outer), self->arrow_end, FALSE, FALSE, 0);
+
   self->box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
-  gtk_container_add (GTK_CONTAINER (self), self->box);
+  gtk_container_add (GTK_CONTAINER (self->scroller), self->box);
+  gtk_viewport_set_shadow_type (GTK_VIEWPORT (gtk_bin_get_child (GTK_BIN (self->scroller))),
+                                GTK_SHADOW_NONE);
+
+  g_signal_connect_swapped (gtk_scrolled_window_get_hadjustment (GTK_SCROLLED_WINDOW (self->scroller)),
+                            "changed", G_CALLBACK (update_arrows), self);
+  g_signal_connect_swapped (gtk_scrolled_window_get_hadjustment (GTK_SCROLLED_WINDOW (self->scroller)),
+                            "value-changed", G_CALLBACK (update_arrows), self);
+  g_signal_connect_swapped (gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (self->scroller)),
+                            "changed", G_CALLBACK (update_arrows), self);
+  g_signal_connect_swapped (gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (self->scroller)),
+                            "value-changed", G_CALLBACK (update_arrows), self);
 }
 
 static void
@@ -760,7 +1051,9 @@ mocka_dock_applet_setup (MockaDockApplet *self)
 
   load_style ();
 
-  mate_panel_applet_set_flags (applet, MATE_PANEL_APPLET_EXPAND_MINOR);
+  /* The dock takes the length the panel has free (SPEC section 3). */
+  mate_panel_applet_set_flags (applet, MATE_PANEL_APPLET_EXPAND_MAJOR
+                                       | MATE_PANEL_APPLET_EXPAND_MINOR);
   mate_panel_applet_set_background_widget (applet, GTK_WIDGET (self));
 
   self->size = mate_panel_applet_get_size (applet);
@@ -807,6 +1100,9 @@ mocka_dock_applet_setup (MockaDockApplet *self)
   g_signal_connect_after (self->box, "draw", G_CALLBACK (on_box_draw), self);
 
   setup_dock_menu (self);
+  watch_panel (self);
+  /* The monitor is only known once the dock has a window. */
+  g_signal_connect_swapped (self, "realize", G_CALLBACK (update_size_hints), self);
 
   gtk_widget_show_all (GTK_WIDGET (self));
 }
