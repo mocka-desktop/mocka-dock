@@ -1,6 +1,6 @@
 # Mocka Dock Specification
 
-Status: draft 5
+Status: draft 9
 Component: `mocka-dock`
 License: BSD-3-Clause
 
@@ -73,7 +73,8 @@ panel's orientation.
   they were started.
 - All windows of the same app share one button.
 - When the last window of an unpinned app closes, its button is removed.
-- Pinning a running app keeps its button where it is.
+- Pinning an app adds it after the other pinned apps. It can then be moved
+  by dragging (section 10).
 - Windows that ask not to appear in taskbars (skip-taskbar) are not shown.
 - By default, the dock shows windows from the current workspace only. A
   setting allows showing windows from all workspaces.
@@ -105,14 +106,21 @@ first match:
    entry runs (case-insensitive). The program is the file name, without its
    directory, of `TryExec`, or of the first word of `Exec` when there is no
    `TryExec`.
-5. The startup notification ID, for windows of apps the dock launched itself.
+5. The executable of the window's process (from `_NET_WM_PID`) against the
+   program each desktop entry runs. When the entry gives the program as a
+   path, both paths are compared after resolving symbolic links; when it
+   gives only a name, the file names are compared. Only entries whose `Exec`
+   has no arguments besides field codes take part, so an entry that runs an
+   interpreter with a script does not claim every program of that
+   interpreter.
+6. The startup notification ID, for windows of apps the dock launched itself.
    The ID is read from the window, or from its client leader window
    (`WM_CLIENT_LEADER`), where GTK apps set it.
-6. Fallback: windows with the same class name are grouped together and shown
+7. Fallback: windows with the same class name are grouped together and shown
    with the window's own icon and title. These apps have no desktop entry ID,
    so they cannot be pinned (section 9.1).
 
-Steps 1 to 4 are first tried against visible desktop entries only. Only when
+Steps 1 to 5 are first tried against visible desktop entries only. Only when
 none of them matches are they tried again against hidden entries
 (`NoDisplay=true`). A hidden entry therefore never wins over a visible one.
 For example, a Caja window (`caja`) matches the visible `caja-browser.desktop`
@@ -132,6 +140,10 @@ Requirements:
   they run and that have no `StartupWMClass`. MATE ships several, for example
   `matecc.desktop` (`mate-control-center`) and `mate-keyboard.desktop`
   (`mate-keyboard-properties`).
+- Step 5 is required for desktop entries written by menu editors, which have
+  no `StartupWMClass` and are named after neither the window nor the
+  program, for example a MenuLibre entry for PyCharm (`jetbrains-pycharm`
+  window, `Exec` pointing at the IDE's `bin/pycharm`).
 - If a window changes its class after appearing, it is matched again.
 - The list of desktop entries is read once, cached, and refreshed only when
   installed applications change.
@@ -169,8 +181,17 @@ When the app is not running:
 
 ### Launch feedback
 
-After launching an app, its button pulses until the app's first window
-appears, or until a timeout of 15 seconds.
+After launching an app, its button pulses: the icon fades in and out about
+once a second. The pulse stops at the first of:
+
+1. A new window of the app appears.
+2. The app reports its startup as complete (freedesktop.org Startup
+   Notification).
+3. One of the app's windows becomes active, as when a single-instance app
+   brings its existing window forward.
+4. 15 seconds have passed.
+
+The animation runs only while an app is starting (section 17).
 
 ## 8. Thumbnails
 
@@ -227,7 +248,7 @@ From top to bottom:
 2. Recent files for this app, if there are any.
 3. The app's name, which launches a new instance.
 4. Pin to dock, or Unpin from dock. Not shown for apps without a desktop
-   entry (section 6, step 6).
+   entry (section 6, step 7).
 5. Close window, or Close all windows when the app has several windows. Not
    shown when the app is not running. Only closes the windows the dock is
    showing (section 5).
@@ -364,7 +385,7 @@ removed, another dock takes over the grab.
 
 | Key | Meaning | Default |
 |---|---|---|
-| `pinned-apps` | Ordered list of pinned desktop entry IDs | GhostBSD's default set |
+| `pinned-apps` | Ordered list of pinned desktop entry IDs | Files, web browser, terminal, Control Center (section 21) |
 
 ### Per dock (`org.mocka_desktop.Dock.Instance`, relocatable)
 
@@ -423,7 +444,13 @@ BAMF, Keybinder, libunity, GVfs, or Python.
 
 - `show-all-workspaces` defaults to false (current workspace only), matching
   MATE's window list.
+- `pinned-apps` defaults to `caja-browser.desktop`, `firefox.desktop`,
+  `mate-terminal.desktop`, and `matecc.desktop`. The default names no app
+  specific to one distribution, since the dock also ships outside GhostBSD.
+  Distributions change it with a GSettings override: GhostBSD's adds its
+  software center (`software-station.desktop`). IDs of apps that are not
+  installed are skipped, so the default is safe where one is missing.
 
 ## 22. Open questions
 
-- GhostBSD's default `pinned-apps` set.
+None at the moment.
