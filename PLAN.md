@@ -75,7 +75,7 @@ therefore takes the panel down, and the panel restarts.
 - [x] Two docks share the pinned list and show the same apps in the same order
 - [x] Launch pulse with startup notification
 - [x] Choose the default pinned set (SPEC section 21)
-- [ ] Manual test by maintainer
+- [x] Manual test by maintainer
 
 ## M3: Menus (first alpha)
 
