@@ -1,6 +1,6 @@
 # Mocka Dock Specification
 
-Status: draft 9
+Status: draft 10
 Component: `mocka-dock`
 License: BSD-3-Clause
 
@@ -439,6 +439,26 @@ BAMF, Keybinder, libunity, GVfs, or Python.
   may use automatic redirection alongside it, so this mode would not clash
   with a compositor that starts later.
 - A setting to show only apps with windows on the dock's own monitor.
+
+### Nice to have
+
+- Recent items for apps that keep them outside the system's recent files list
+  (section 9.1):
+  - JetBrains IDEs (PyCharm, CLion, and others): recent projects, kept in
+    each IDE's own settings folder.
+  - VS Code and Code OSS: recent folders and files, kept in the editor's own
+    state database.
+  - LibreOffice: recent documents per module (Writer documents under Writer,
+    and so on). LibreOffice keeps its own history, and the entries it adds to
+    the system list name `soffice`, which matches none of its desktop entries.
+  - Other apps found the same way during testing.
+
+  Each app would get its own reader. The dock only reads these files, never
+  writes them, and shows nothing for an app when its file is missing or in a
+  format the reader does not know, since these formats belong to the apps and
+  can change in any release. Readers must not add dependencies beyond those in
+  section 18, so a format that needs one (such as a database library) is left
+  out.
 
 ## 21. Decisions
 
