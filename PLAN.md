@@ -79,9 +79,9 @@ therefore takes the panel down, and the panel restarts.
 
 ## M3: Menus (first alpha)
 
-- [ ] App menu: desktop actions, recent files, new instance, pin, close
+- [x] App menu: desktop actions, recent files, new instance, pin, close
 - [x] Window menu on Shift + right click
-- [ ] Dock menu on Ctrl + right click and empty space. Preferences stays hidden until the window exists (M7); settings are changed with `gsettings` meanwhile
+- [x] Dock menu on Ctrl + right click and empty space. Preferences stays hidden until the window exists (M7); settings are changed with `gsettings` meanwhile. Right click on empty space is checked with auto-resize, which gives the dock empty space
 - [ ] Auto-resize and overflow arrows
 - [ ] Manual test by maintainer
 - [ ] Add `x11/mocka-dock` to ghostbsd-ports from the stashed draft, pointing at the alpha. Update its plist for the in-process module: `lib/mate-panel/libmocka-dock-applet.so` in place of `libexec/mocka-dock-applet` and the D-Bus service file

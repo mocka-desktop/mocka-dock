@@ -664,6 +664,52 @@ update_pinned (MockaDockApplet *self)
   mocka_dock_model_set_pinned (self->model, entries);
 }
 
+/* About, from the dock menu (SPEC section 9.3). */
+static void
+on_about (GtkAction *action,
+          gpointer   user_data)
+{
+  const gchar *authors[] = { "The Mocka Desktop Project", NULL };
+
+  gtk_show_about_dialog (NULL,
+                         "program-name", _("Mocka Dock"),
+                         "version", PACKAGE_VERSION,
+                         "comments", _("Pinned and running applications"),
+                         "logo-icon-name", "user-desktop",
+                         "copyright", "Copyright \xc2\xa9 2026 The Mocka Desktop Project",
+                         "license-type", GTK_LICENSE_BSD_3,
+                         "authors", authors,
+                         "website", "https://github.com/mocka-desktop/mocka-dock",
+                         NULL);
+}
+
+/*
+ * Dock menu (SPEC section 9.3): the panel's applet menu, shown on Ctrl +
+ * right click anywhere on the dock and right click on empty space, with
+ * the dock's items above the panel's own. Preferences is added once its
+ * window exists (M7).
+ */
+static void
+setup_dock_menu (MockaDockApplet *self)
+{
+  static const gchar menu_xml[] =
+    "<menuitem name=\"About\" action=\"About\" />";
+  GtkActionGroup *group;
+
+  G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+  static const GtkActionEntry entries[] = {
+    { "About", "help-about", N_("_About"), NULL, NULL, G_CALLBACK (on_about) },
+  };
+
+  group = gtk_action_group_new ("MockaDockActions");
+  gtk_action_group_set_translation_domain (group, GETTEXT_PACKAGE);
+  gtk_action_group_add_actions (group, entries, G_N_ELEMENTS (entries), self);
+  G_GNUC_END_IGNORE_DEPRECATIONS
+
+  mate_panel_applet_setup_menu (MATE_PANEL_APPLET (self), menu_xml, group);
+  g_object_unref (group);
+}
+
 static void
 mocka_dock_applet_dispose (GObject *object)
 {
@@ -759,6 +805,8 @@ mocka_dock_applet_setup (MockaDockApplet *self)
   g_signal_connect (self, "drag-data-received",
                     G_CALLBACK (on_drag_data_received), self);
   g_signal_connect_after (self->box, "draw", G_CALLBACK (on_box_draw), self);
+
+  setup_dock_menu (self);
 
   gtk_widget_show_all (GTK_WIDGET (self));
 }

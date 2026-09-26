@@ -28,7 +28,7 @@ add_project_arguments(
   language: 'c',
 )
 
-gtk_dep = dependency('gtk+-3.0', version: '>= 3.22')
+gtk_dep = dependency('gtk+-3.0', version: '>= 3.24.20')
 applet_dep = dependency('libmatepanelapplet-4.0', version: '>= 1.26')
 wnck_dep = dependency('libwnck-3.0', version: '>= 40')
 gio_dep = dependency('gio-unix-2.0')
