@@ -1,6 +1,6 @@
 # Mocka Dock Specification
 
-Status: draft 10
+Status: draft 11
 Component: `mocka-dock`
 License: BSD-3-Clause
 
@@ -42,7 +42,10 @@ Platform: X11, FreeBSD first. Wayland is out of scope.
 - Button orientation follows the panel: a row on horizontal panels, a column
   on vertical panels.
 - The dock sizes itself to the space the panel gives it and adapts when
-  applets are added, removed, or moved.
+  applets are added, removed, or moved. On an expanded panel the dock takes
+  all the free room, and the space after its last button is empty dock space
+  (section 7). On other panels it is as long as its buttons, and the panel
+  grows with it.
 - When there is not enough space for all buttons, a small arrow button
   appears at each end of the app section. Clicking an arrow scrolls in that
   direction. Hovering never scrolls, so hover only ever means thumbnails, and
