@@ -113,6 +113,18 @@ mocka_dock_app_get_pinned (MockaDockApp *self)
 }
 
 /*
+ * All the app's windows, shown or on other workspaces, oldest first. Owned
+ * by the app.
+ */
+GPtrArray *
+mocka_dock_app_get_all_windows (MockaDockApp *self)
+{
+  g_return_val_if_fail (MOCKA_IS_DOCK_APP (self), NULL);
+
+  return self->all_windows;
+}
+
+/*
  * The app's shown windows, oldest first. Counts, clicks, and lists use only
  * these (SPEC section 5). Owned by the app.
  */

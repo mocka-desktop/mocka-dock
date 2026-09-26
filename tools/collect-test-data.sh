@@ -38,8 +38,9 @@ shift $((OPTIND - 1))
 
 name="$1"
 expect="$2"
-# Keep the home directory and host name out of the samples.
-scrub="s#$HOME#/home/user#g; s#$(hostname)#host#g"
+# Keep the home directory and host name out of the samples. On FreeBSD
+# /home links to /usr/home, and process paths use the resolved form.
+scrub="s#/usr$HOME#/home/user#g; s#$HOME#/home/user#g; s#$(hostname)#host#g"
 dir="$(dirname "$0")/../docs/test-data"
 out="$dir/$name.txt"
 props="WM_CLASS _NET_STARTUP_ID WM_WINDOW_ROLE _NET_WM_WINDOW_TYPE"
@@ -58,6 +59,12 @@ fi
 	if [ -n "$leader" ] && [ "$leader" != "$id" ]; then
 		printf 'leader '
 		xprop -id "$leader" -notype _NET_STARTUP_ID
+	fi
+	# The executable of the window's process (SPEC section 6, step 5).
+	pid=$(xprop -id "$id" _NET_WM_PID | awk '/=/ { print $NF }')
+	if [ -n "$pid" ]; then
+		printf 'executable = '
+		procstat -b "$pid" | tail -n 1 | sed -E 's/^ *[0-9]+ +[^ ]+ +[0-9]+ +//'
 	fi
 } | sed "$scrub" > "$out"
 echo "wrote $out" >&2

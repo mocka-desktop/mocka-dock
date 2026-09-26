@@ -15,6 +15,8 @@
 
 #include "app-index.h"
 
+#include <limits.h>
+#include <stdlib.h>
 #include <string.h>
 
 struct _MockaAppIndex
@@ -24,7 +26,7 @@ struct _MockaAppIndex
   gchar **dirs;           /* applications directories, highest precedence first */
   GPtrArray *entries;     /* MockaAppEntry, owned */
   GHashTable *by_id;      /* ID → MockaAppEntry */
-  GHashTable *tables[3];  /* MockaAppKey → (key → GPtrArray of MockaAppEntry) */
+  GHashTable *tables[5];  /* MockaAppKey → (key → GPtrArray of MockaAppEntry) */
   GAppInfoMonitor *monitor;
 };
 
@@ -48,6 +50,7 @@ mocka_app_entry_clear (MockaAppEntry *entry)
   g_free (entry->exec);
   g_free (entry->startup_wm_class);
   g_free (entry->program);
+  g_free (entry->program_path);
 }
 
 MockaAppEntry *
@@ -124,11 +127,29 @@ load_entry (const gchar *path,
   try_exec = g_key_file_get_string (file, group,
       G_KEY_FILE_DESKTOP_KEY_TRY_EXEC, NULL);
   if (try_exec != NULL && *try_exec != '\0')
-    entry->program = g_path_get_basename (try_exec);
+    entry->program_path = g_steal_pointer (&try_exec);
   else if (argv != NULL && argv[0] != NULL)
-    entry->program = g_path_get_basename (argv[0]);
+    entry->program_path = g_strdup (argv[0]);
+
+  if (entry->program_path != NULL)
+    entry->program = g_path_get_basename (entry->program_path);
 
   return entry;
+}
+
+/*
+ * A path with symbolic links resolved, such as /usr/home/... for /home/...
+ * on FreeBSD. A path that does not exist is only made absolute and tidied.
+ */
+gchar *
+mocka_resolve_path (const gchar *path)
+{
+  char resolved[PATH_MAX];
+
+  if (realpath (path, resolved) != NULL)
+    return g_strdup (resolved);
+
+  return g_canonicalize_filename (path, "/");
 }
 
 /*
@@ -238,6 +259,17 @@ build_tables (MockaAppIndex *self)
       if (entry->program != NULL)
         table_add (self->tables[MOCKA_APP_KEY_PROGRAM],
                    g_utf8_casefold (entry->program, -1), entry);
+
+      /* Step 5 leaves out interpreters run with a script. */
+      if (entry->program_path != NULL && !entry->exec_has_args)
+        {
+          if (strchr (entry->program_path, '/') != NULL)
+            table_add (self->tables[MOCKA_APP_KEY_EXECUTABLE],
+                       mocka_resolve_path (entry->program_path), entry);
+          else
+            table_add (self->tables[MOCKA_APP_KEY_EXECUTABLE_NAME],
+                       g_strdup (entry->program_path), entry);
+        }
     }
 
   for (t = 0; t < G_N_ELEMENTS (self->tables); t++)
@@ -301,7 +333,9 @@ mocka_app_index_find (MockaAppIndex *self,
   if (value == NULL)
     return NULL;
 
-  if (key == MOCKA_APP_KEY_STARTUP_WM_CLASS)
+  if (key == MOCKA_APP_KEY_STARTUP_WM_CLASS
+      || key == MOCKA_APP_KEY_EXECUTABLE
+      || key == MOCKA_APP_KEY_EXECUTABLE_NAME)
     return g_hash_table_lookup (self->tables[key], value);
 
   folded = g_utf8_casefold (value, -1);

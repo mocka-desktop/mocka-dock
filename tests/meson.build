@@ -12,3 +12,15 @@ test_dock_model = executable('test-dock-model',
   dependencies: core_dep,
 )
 test('dock-model', test_dock_model)
+
+test_pinning = executable('test-pinning',
+  'test-pinning.c',
+  dependencies: core_dep,
+)
+test('pinning', test_pinning)
+
+test_startup_message = executable('test-startup-message',
+  'test-startup-message.c',
+  dependencies: core_dep,
+)
+test('startup-message', test_startup_message)

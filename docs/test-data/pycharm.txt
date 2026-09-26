@@ -1,5 +1,7 @@
-# expect: none
+# expect: menulibre-pycharm.desktop
 WM_CLASS = "jetbrains-pycharm", "jetbrains-pycharm"
 _NET_STARTUP_ID:  not found.
 WM_WINDOW_ROLE:  not found.
 _NET_WM_WINDOW_TYPE = _NET_WM_WINDOW_TYPE_NORMAL
+leader _NET_STARTUP_ID:  not found.
+executable = /home/user/pycharm-2025.2.5/bin/pycharm

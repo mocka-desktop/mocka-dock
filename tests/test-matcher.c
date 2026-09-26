@@ -11,6 +11,7 @@
  */
 
 #include <string.h>
+#include <unistd.h>
 
 #include <glib.h>
 #include <glib/gstdio.h>
@@ -26,6 +27,7 @@ typedef struct
   gchar *instance;
   gchar *res_class;
   gchar *startup_id;
+  gchar *executable;
 } Sample;
 
 static void
@@ -35,6 +37,7 @@ sample_free (Sample *sample)
   g_free (sample->instance);
   g_free (sample->res_class);
   g_free (sample->startup_id);
+  g_free (sample->executable);
   g_free (sample);
 }
 
@@ -92,6 +95,11 @@ sample_load (const gchar *path)
           g_free (sample->startup_id);
           sample->startup_id = quoted (line, 0);
         }
+      else if (g_str_has_prefix (line, "executable = "))
+        {
+          g_free (sample->executable);
+          sample->executable = g_strdup (line + strlen ("executable = "));
+        }
       else if (g_str_has_prefix (line, "leader _NET_STARTUP_ID = ")
                && sample->startup_id == NULL)
         {
@@ -115,8 +123,8 @@ test_sample (gconstpointer data)
   g_assert_nonnull (sample->res_class);
 
   entry = mocka_matcher_match (fixture_index, sample->instance,
-                               sample->res_class, sample->startup_id, NULL,
-                               &step);
+                               sample->res_class, sample->executable,
+                               sample->startup_id, NULL, &step);
 
   if (strcmp (sample->expect, "none") == 0)
     {
@@ -193,7 +201,8 @@ assert_match (MockaAppIndex  *index,
   g_autoptr(MockaAppEntry) entry = NULL;
   MockaMatchStep step;
 
-  entry = mocka_matcher_match (index, instance, res_class, NULL, NULL, &step);
+  entry = mocka_matcher_match (index, instance, res_class, NULL, NULL, NULL,
+                               &step);
   g_assert_nonnull (entry);
   g_assert_cmpstr (entry->id, ==, expect);
   g_assert_cmpint (step, ==, expect_step);
@@ -277,7 +286,7 @@ test_instance_first (void)
   remove_tree (dir);
 }
 
-/* Step 5: a window the dock launched, matched by its startup ID. */
+/* Step 6: a window the dock launched, matched by its startup ID. */
 static void
 test_startup_id (void)
 {
@@ -288,7 +297,7 @@ test_startup_id (void)
   g_hash_table_insert (launches, "mocka-dock-1_TIME0", "libreoffice-writer.desktop");
 
   entry = mocka_matcher_match (fixture_index, "soffice", "Soffice",
-                               "mocka-dock-1_TIME0", launches, &step);
+                               NULL, "mocka-dock-1_TIME0", launches, &step);
   g_assert_nonnull (entry);
   g_assert_cmpstr (entry->id, ==, "libreoffice-writer.desktop");
   g_assert_cmpint (step, ==, MOCKA_MATCH_STARTUP_ID);
@@ -296,9 +305,103 @@ test_startup_id (void)
 
   /* Launched by another program: not in the table. */
   entry = mocka_matcher_match (fixture_index, "soffice", "Soffice",
-                               "brisk-menu-1_TIME0", launches, &step);
+                               NULL, "brisk-menu-1_TIME0", launches, &step);
   g_assert_null (entry);
   g_assert_cmpint (step, ==, MOCKA_MATCH_NONE);
+}
+
+static void
+assert_executable_match (MockaAppIndex  *index,
+                         const gchar    *executable,
+                         const gchar    *expect)
+{
+  g_autoptr(MockaAppEntry) entry = NULL;
+  MockaMatchStep step;
+
+  /* Window names that match nothing, as for a menu editor's entry. */
+  entry = mocka_matcher_match (index, "unknown-app", "Unknown-app", executable,
+                               NULL, NULL, &step);
+  if (expect == NULL)
+    {
+      g_assert_null (entry);
+      return;
+    }
+
+  g_assert_nonnull (entry);
+  g_assert_cmpstr (entry->id, ==, expect);
+  g_assert_cmpint (step, ==, MOCKA_MATCH_EXECUTABLE);
+}
+
+/* Step 5: an entry giving a path matches the process running that file. */
+static void
+test_executable_path (void)
+{
+  g_autofree gchar *dir = make_dir ();
+  g_autoptr(MockaAppIndex) index = NULL;
+
+  write_entry (dir, "editor-made.desktop",
+               "Exec='/opt/ide-1.0/bin/ide' %f\n");
+  write_entry (dir, "other.desktop", "Exec=/opt/other/bin/ide\n");
+  index = index_for (dir);
+  assert_executable_match (index, "/opt/ide-1.0/bin/ide", "editor-made.desktop");
+  assert_executable_match (index, "/opt/ide-2.0/bin/ide", NULL);
+
+  remove_tree (dir);
+}
+
+/* Step 5: an entry giving a bare name matches any process of that name. */
+static void
+test_executable_name (void)
+{
+  g_autofree gchar *dir = make_dir ();
+  g_autoptr(MockaAppIndex) index = NULL;
+
+  write_entry (dir, "tool.desktop", "Exec=tool %f\n");
+  index = index_for (dir);
+  assert_executable_match (index, "/home/user/tool-3/bin/tool", "tool.desktop");
+
+  remove_tree (dir);
+}
+
+/* Step 5 leaves out entries running an interpreter with a script. */
+static void
+test_executable_interpreter (void)
+{
+  g_autofree gchar *dir = make_dir ();
+  g_autoptr(MockaAppIndex) index = NULL;
+
+  write_entry (dir, "script.desktop",
+               "Exec=/usr/local/bin/python3 /usr/local/share/script/main.py\n");
+  write_entry (dir, "python.desktop", "Exec=python3 /opt/other.py\n");
+  index = index_for (dir);
+  assert_executable_match (index, "/usr/local/bin/python3", NULL);
+
+  remove_tree (dir);
+}
+
+/* Step 5 also resolves symbolic links, as for /home and /usr/home. */
+static void
+test_executable_link (void)
+{
+  g_autofree gchar *dir = make_dir ();
+  g_autofree gchar *real = g_build_filename (dir, "real-tool", NULL);
+  g_autofree gchar *link = g_build_filename (dir, "link-tool", NULL);
+  g_autofree gchar *keys = g_strdup_printf ("Exec=%s\n", link);
+  g_autoptr(MockaAppIndex) index = NULL;
+  g_autofree gchar *resolved = NULL;
+
+  g_assert_true (g_file_set_contents (real, "", -1, NULL));
+  g_assert_cmpint (symlink (real, link), ==, 0);
+  write_entry (dir, "linked.desktop", keys);
+  index = index_for (dir);
+
+  /* The kernel reports the resolved path of the running file. */
+  resolved = mocka_resolve_path (real);
+  assert_executable_match (index, resolved, "linked.desktop");
+
+  g_remove (link);
+  g_remove (real);
+  remove_tree (dir);
 }
 
 /* The first directory wins for an ID, and a Hidden entry deletes it. */
@@ -432,6 +535,10 @@ main (int    argc,
   g_test_add_func ("/matcher/try-exec", test_try_exec);
   g_test_add_func ("/matcher/instance-first", test_instance_first);
   g_test_add_func ("/matcher/startup-id", test_startup_id);
+  g_test_add_func ("/matcher/executable-path", test_executable_path);
+  g_test_add_func ("/matcher/executable-name", test_executable_name);
+  g_test_add_func ("/matcher/executable-interpreter", test_executable_interpreter);
+  g_test_add_func ("/matcher/executable-link", test_executable_link);
   g_test_add_func ("/app-index/precedence", test_precedence);
   g_test_add_func ("/app-index/subdir-id", test_subdir_id);
   g_test_add_func ("/app-index/not-application", test_not_application);

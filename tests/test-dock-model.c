@@ -375,11 +375,21 @@ static void
 test_pinned_hidden (Fixture       *fixture,
                     gconstpointer  data)
 {
+  MockaDockApp *app;
+  GPtrArray *all;
+
   set_pinned (fixture->model, "a.desktop");
   mocka_dock_model_add_window (fixture->model, WINDOW (1), "a.desktop", NULL, FALSE);
+  mocka_dock_model_add_window (fixture->model, WINDOW (2), "a.desktop", NULL, FALSE);
   assert_order (fixture->model, "a.desktop");
-  g_assert_cmpuint (mocka_dock_app_get_windows (
-      mocka_dock_model_lookup (fixture->model, "a.desktop"))->len, ==, 0);
+
+  app = mocka_dock_model_lookup (fixture->model, "a.desktop");
+  g_assert_cmpuint (mocka_dock_app_get_windows (app)->len, ==, 0);
+
+  /* Its hidden windows are still reachable, to switch to one on click. */
+  all = mocka_dock_app_get_all_windows (app);
+  g_assert_cmpuint (all->len, ==, 2);
+  g_assert_true (g_ptr_array_index (all, 0) == WINDOW (1));
 }
 
 static void

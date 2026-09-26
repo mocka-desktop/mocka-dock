@@ -22,6 +22,7 @@ struct _MockaAppEntry
   gchar *exec;
   gchar *startup_wm_class;
   gchar *program;          /* file name of TryExec, or of Exec's first word */
+  gchar *program_path;     /* TryExec, or Exec's first word, as written */
   gboolean no_display;
   gboolean exec_has_args;  /* Exec has arguments besides field codes */
 };
@@ -37,6 +38,9 @@ typedef enum
   MOCKA_APP_KEY_STARTUP_WM_CLASS, /* exact */
   MOCKA_APP_KEY_ID,               /* ID without ".desktop", case-insensitive */
   MOCKA_APP_KEY_PROGRAM,          /* program file name, case-insensitive */
+  /* Step 5, entries without Exec arguments only: */
+  MOCKA_APP_KEY_EXECUTABLE,       /* program path, links resolved, exact */
+  MOCKA_APP_KEY_EXECUTABLE_NAME,  /* program given as a bare name, exact */
 } MockaAppKey;
 
 #define MOCKA_TYPE_APP_INDEX (mocka_app_index_get_type ())
@@ -52,5 +56,7 @@ MockaAppEntry *mocka_app_index_lookup         (MockaAppIndex *self,
 GPtrArray     *mocka_app_index_find           (MockaAppIndex *self,
                                                MockaAppKey    key,
                                                const gchar   *value);
+
+gchar         *mocka_resolve_path             (const gchar   *path);
 
 G_END_DECLS

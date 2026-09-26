@@ -23,6 +23,7 @@ const gchar   *mocka_dock_app_get_key     (MockaDockApp *self);
 MockaAppEntry *mocka_dock_app_get_entry   (MockaDockApp *self);
 gboolean       mocka_dock_app_get_pinned  (MockaDockApp *self);
 GPtrArray     *mocka_dock_app_get_windows (MockaDockApp *self);
+GPtrArray     *mocka_dock_app_get_all_windows (MockaDockApp *self);
 
 /* The ordered list of apps shown in the dock, as a GListModel. */
 #define MOCKA_TYPE_DOCK_MODEL (mocka_dock_model_get_type ())

@@ -6,7 +6,7 @@ Real window properties recorded on GhostBSD, used by the matcher unit tests
 ## Samples (`*.txt`)
 
 One file per window. The first line is the desktop entry ID the matcher must
-return, or `none` when the window must use the class fallback (step 6). The
+return, or `none` when the window must use the class fallback (step 7). The
 rest is `xprop -notype` output for `WM_CLASS`, `_NET_STARTUP_ID`,
 `WM_WINDOW_ROLE`, and `_NET_WM_WINDOW_TYPE`. A `leader` line holds the
 `_NET_STARTUP_ID` of the window's `WM_CLIENT_LEADER`, where GTK apps put it

@@ -17,13 +17,15 @@ typedef enum
   MOCKA_MATCH_STARTUP_WM_CLASS_CLASS    = 2,
   MOCKA_MATCH_ID                        = 3,
   MOCKA_MATCH_PROGRAM                   = 4,
-  MOCKA_MATCH_STARTUP_ID                = 5,
-  MOCKA_MATCH_NONE                      = 6,
+  MOCKA_MATCH_EXECUTABLE                = 5,
+  MOCKA_MATCH_STARTUP_ID                = 6,
+  MOCKA_MATCH_NONE                      = 7,
 } MockaMatchStep;
 
 MockaAppEntry *mocka_matcher_match (MockaAppIndex  *index,
                                     const gchar    *instance,
                                     const gchar    *res_class,
+                                    const gchar    *executable,
                                     const gchar    *startup_id,
                                     GHashTable     *launches,
                                     MockaMatchStep *step);

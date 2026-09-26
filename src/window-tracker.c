@@ -139,7 +139,7 @@ update_window (MockaWindowTracker *self,
   res_class = wnck_window_get_class_group_name (window);
   entry = mocka_matcher_match (self->index,
                                wnck_window_get_class_instance_name (window),
-                               res_class, startup_id, self->launches, NULL);
+                               res_class, NULL, startup_id, self->launches, NULL);
   key = mocka_dock_app_key_for (entry, res_class);
 
   mocka_dock_model_add_window (self->model, window, key, entry,
