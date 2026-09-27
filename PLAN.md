@@ -83,11 +83,11 @@ therefore takes the panel down, and the panel restarts.
 - [x] Window menu on Shift + right click
 - [x] Dock menu on Ctrl + right click and empty space. Preferences stays hidden until the window exists (M7); settings are changed with `gsettings` meanwhile. Right click on empty space is checked with auto-resize, which gives the dock empty space
 - [x] Auto-resize and overflow arrows: the dock fills the free room of an expanded panel and is as long as its buttons on other panels
-- [ ] Manual test by maintainer
-- [ ] Add `x11/mocka-dock` to ghostbsd-ports from the stashed draft, pointing at the alpha. Update its plist for the in-process module: `lib/mate-panel/libmocka-dock-applet.so` in place of `libexec/mocka-dock-applet` and the D-Bus service file
-- [ ] GhostBSD override for `pinned-apps` adding `software-station.desktop`, as `schemas/92_org.mocka_desktop.Dock.gschema.override` in ghostbsd-mate-settings
-- [ ] User guide on the project wiki, first version for testers: adding the dock to a panel, clicks and menus, pinning, and settings through `gsettings`
-- [ ] Alpha release for GhostBSD testers
+- [x] Manual test by maintainer
+- [x] Add `x11/mocka-dock` to ghostbsd-ports from the stashed draft, pointing at the alpha. Update its plist for the in-process module: `lib/mate-panel/libmocka-dock-applet.so` in place of `libexec/mocka-dock-applet` and the D-Bus service file
+- [x] GhostBSD override for `pinned-apps` adding `software-station.desktop`, as `schemas/92_org.mocka_desktop.Dock.gschema.override` in ghostbsd-mate-settings
+- [x] User guide on the project wiki, first version for testers: adding the dock to a panel, clicks and menus, pinning, and settings through `gsettings`
+- [ ] Alpha release 0.0.1 for GhostBSD testers. Versions are numbers only (no alpha or rc suffixes); later alphas bump the last number
 
 ## M4: Thumbnails
 
