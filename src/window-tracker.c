@@ -593,6 +593,89 @@ mocka_window_tracker_init (MockaWindowTracker *self)
                                           free_string);
 }
 
+/*
+ * A process the dock started, watched until it exits, so a launch that never
+ * shows a window does not pulse for the full timeout. An application that is
+ * already running does exactly that: the new process hands the request to the
+ * running one and exits without mapping anything.
+ */
+typedef struct
+{
+  MockaWindowTracker *self;
+  GAppLaunchContext  *context;   /* NULL once the app is taken to be up */
+  gchar              *startup_id;
+  GPid                pid;
+  guint               timeout_id;
+} LaunchProcess;
+
+static void
+launch_process_free (gpointer data)
+{
+  LaunchProcess *process = data;
+
+  g_clear_handle_id (&process->timeout_id, g_source_remove);
+  g_clear_object (&process->context);
+  g_clear_object (&process->self);
+  g_free (process->startup_id);
+  g_free (process);
+}
+
+/* Running after all this time, so it is up and no longer worth watching. */
+static gboolean
+on_launch_process_settled (gpointer data)
+{
+  LaunchProcess *process = data;
+
+  process->timeout_id = 0;
+  g_clear_object (&process->context);
+
+  return G_SOURCE_REMOVE;
+}
+
+static void
+on_launch_process_exited (GPid pid, gint status, gpointer data)
+{
+  LaunchProcess *process = data;
+
+  if (process->context != NULL)
+    {
+      /* Tells everyone watching, the window manager included, and comes back
+       * to us through the root window as a "remove" message. */
+      g_app_launch_context_launch_failed (process->context, process->startup_id);
+      end_launch (process->self, process->startup_id);
+    }
+
+  g_spawn_close_pid (pid);
+}
+
+/* Starts watching the process behind this launch, when there is one. */
+static void
+watch_launch_process (MockaWindowTracker *self,
+                      GAppLaunchContext  *context,
+                      const gchar        *startup_id,
+                      GVariant           *platform_data)
+{
+  LaunchProcess *process;
+  gint32 pid = 0;
+
+  if (!g_variant_lookup (platform_data, "pid", "i", &pid) || pid <= 0)
+    return;
+
+  process = g_new0 (LaunchProcess, 1);
+  process->self = g_object_ref (self);
+  process->context = g_object_ref (context);
+  process->startup_id = g_strdup (startup_id);
+  process->pid = (GPid) pid;
+  process->timeout_id = g_timeout_add_seconds (LAUNCH_TIMEOUT_SECONDS,
+                                               on_launch_process_settled,
+                                               process);
+
+  /* The watch also reaps the child, so it is kept until it fires. */
+  g_child_watch_add_full (G_PRIORITY_DEFAULT, process->pid,
+                          on_launch_process_exited, process,
+                          launch_process_free);
+}
+
 static void
 on_launched (GAppLaunchContext *context,
              GAppInfo          *info,
@@ -624,6 +707,8 @@ on_launched (GAppLaunchContext *context,
       if (!was_launching)
         g_signal_emit (self, signals[SIGNAL_LAUNCH_STATE_CHANGED], 0,
                        desktop_id, TRUE);
+
+      watch_launch_process (self, context, startup_id, platform_data);
     }
 }
 
@@ -730,7 +815,8 @@ mocka_window_tracker_launch (MockaWindowTracker  *self,
   path = g_desktop_app_info_get_string (info, G_KEY_FILE_DESKTOP_KEY_PATH);
 
   return g_desktop_app_info_launch_uris_as_manager (info, uri_list,
-      G_APP_LAUNCH_CONTEXT (context), G_SPAWN_SEARCH_PATH,
+      G_APP_LAUNCH_CONTEXT (context),
+      G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
       path == NULL ? change_to_home : NULL, (gpointer) g_get_home_dir (),
       NULL, NULL, error);
 }
