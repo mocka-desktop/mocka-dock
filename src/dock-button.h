@@ -8,6 +8,9 @@
 
 #include <gtk/gtk.h>
 
+#define WNCK_I_KNOW_THIS_IS_UNSTABLE
+#include <libwnck/libwnck.h>
+
 #include "dock-model.h"
 
 G_BEGIN_DECLS
@@ -24,5 +27,7 @@ void mocka_dock_button_set_size (MockaDockButton *self, gint size);
 void mocka_dock_button_set_popup_side (MockaDockButton *self, GtkPositionType side);
 gboolean mocka_dock_button_get_screen_rect (MockaDockButton *self, GdkRectangle *rect);
 void mocka_dock_button_set_launching (MockaDockButton *self, gboolean launching);
+
+void mocka_dock_toggle_window (WnckWindow *window, guint32 time);
 
 G_END_DECLS

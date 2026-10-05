@@ -87,15 +87,15 @@ therefore takes the panel down, and the panel restarts.
 - [x] Add `x11/mocka-dock` to ghostbsd-ports from the stashed draft, pointing at the alpha. Update its plist for the in-process module: `lib/mate-panel/libmocka-dock-applet.so` in place of `libexec/mocka-dock-applet` and the D-Bus service file
 - [x] GhostBSD override for `pinned-apps` adding `software-station.desktop`, as `schemas/92_org.mocka_desktop.Dock.gschema.override` in ghostbsd-mate-settings
 - [x] User guide on the project wiki, first version for testers: adding the dock to a panel, clicks and menus, pinning, and settings through `gsettings`
-- [ ] Alpha release 0.0.1 for GhostBSD testers. Versions are numbers only (no alpha or rc suffixes); later alphas bump the last number
+- [x] Alpha release 0.0.1 for GhostBSD testers. Versions are numbers only (no alpha or rc suffixes); later alphas bump the last number
 
 ## M4: Thumbnails
 
-- [ ] Thumbnail popup with hover timings from SPEC section 8
+- [x] Thumbnail popup with hover timings from SPEC section 8
 - [ ] Composite capture with a compositor, icon and title fallback without one
 - [ ] Snapshots on focus loss and before the dock minimizes a window
 - [ ] Damage updates only while the popup is showing
-- [ ] Thumbnail actions: switch, minimize focused, close
+- [x] Thumbnail actions: switch, minimize focused, close
 - [ ] Manual test with the compositor on and off
 - [ ] Collect feedback on the multiple-window click behavior
 

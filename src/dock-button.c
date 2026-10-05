@@ -43,6 +43,7 @@ enum
   SIGNAL_LAUNCH,
   SIGNAL_PIN,
   SIGNAL_UNPIN,
+  SIGNAL_TOGGLE_THUMBNAILS,
   N_SIGNALS
 };
 
@@ -86,12 +87,6 @@ on_icon_changed (WnckWindow *window, gpointer user_data)
 }
 
 static void
-on_name_changed (WnckWindow *window, gpointer user_data)
-{
-  gtk_widget_set_tooltip_text (GTK_WIDGET (user_data), wnck_window_get_name (window));
-}
-
-static void
 set_icon_window (MockaDockButton *self, WnckWindow *window)
 {
   if (self->icon_window == window)
@@ -105,8 +100,6 @@ set_icon_window (MockaDockButton *self, WnckWindow *window)
     return;
 
   g_signal_connect (window, "icon-changed", G_CALLBACK (on_icon_changed), self);
-  g_signal_connect (window, "name-changed", G_CALLBACK (on_name_changed), self);
-  on_name_changed (window, self);
   update_fallback_icon (self);
 }
 
@@ -167,6 +160,9 @@ on_windows_changed (MockaDockApp *app, gpointer user_data)
 
   update_icon_geometry (self, TRUE);
   gtk_widget_queue_draw (GTK_WIDGET (self));
+
+  /* Running apps show thumbnails on hover instead of a tooltip. */
+  gtk_widget_set_has_tooltip (GTK_WIDGET (self), windows->len == 0);
 
   if (mocka_dock_app_get_entry (app) != NULL)
     return;
@@ -370,40 +366,13 @@ most_recent_window (GPtrArray *windows)
 }
 
 /* SPEC section 7: activate the window, or minimize it when it is focused. */
-static void
-toggle_window (WnckWindow *window, guint32 time)
+void
+mocka_dock_toggle_window (WnckWindow *window, guint32 time)
 {
   if (wnck_window_is_active (window))
     wnck_window_minimize (window);
   else
     activate_window (window, time);
-}
-
-static void
-on_window_item_activate (GtkMenuItem *item, gpointer user_data)
-{
-  toggle_window (WNCK_WINDOW (user_data), gtk_get_current_event_time ());
-}
-
-static GtkWidget *
-window_item_new (WnckWindow *window)
-{
-  GtkWidget *item = gtk_menu_item_new ();
-  GtkWidget *box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
-  GtkWidget *label = gtk_label_new (wnck_window_get_name (window));
-
-  gtk_label_set_ellipsize (GTK_LABEL (label), PANGO_ELLIPSIZE_END);
-  gtk_label_set_max_width_chars (GTK_LABEL (label), 50);
-  gtk_label_set_xalign (GTK_LABEL (label), 0.0F);
-
-  gtk_container_add (GTK_CONTAINER (box), gtk_image_new_from_pixbuf (wnck_window_get_mini_icon (window)));
-  gtk_container_add (GTK_CONTAINER (box), label);
-  gtk_container_add (GTK_CONTAINER (item), box);
-
-  /* The window may close while the list is open. */
-  g_signal_connect_object (item, "activate", G_CALLBACK (on_window_item_activate), window, 0);
-
-  return item;
 }
 
 static gboolean
@@ -460,24 +429,6 @@ popup_menu (MockaDockButton *self, GtkWidget *menu)
   g_object_set (menu, "anchor-hints", GDK_ANCHOR_FLIP | GDK_ANCHOR_SLIDE | GDK_ANCHOR_RESIZE, NULL);
   g_signal_connect (menu, "deactivate", G_CALLBACK (on_menu_deactivate), NULL);
   gtk_menu_popup_at_widget (GTK_MENU (menu), GTK_WIDGET (self), button_anchor, menu_anchor, NULL);
-}
-
-/*
- * Several windows: a list of their titles, standing in for the thumbnails
- * of SPEC section 8 until M4. Clicking the button again closes it, because
- * the open list takes that click.
- */
-static void
-show_window_list (MockaDockButton *self, GPtrArray *windows)
-{
-  GtkWidget *menu = gtk_menu_new ();
-  guint i;
-
-  for (i = 0; i < windows->len; i++)
-    gtk_menu_shell_append (GTK_MENU_SHELL (menu), window_item_new (g_ptr_array_index (windows, i)));
-
-  gtk_widget_show_all (menu);
-  popup_menu (self, menu);
 }
 
 /*
@@ -611,9 +562,9 @@ mocka_dock_button_clicked (GtkButton *button)
         launch_new_instance (self);
     }
   else if (windows->len == 1)
-    toggle_window (g_ptr_array_index (windows, 0), gtk_get_current_event_time ());
+    mocka_dock_toggle_window (g_ptr_array_index (windows, 0), gtk_get_current_event_time ());
   else if (windows->len > 1)
-    show_window_list (self, windows);
+    g_signal_emit (self, signals[SIGNAL_TOGGLE_THUMBNAILS], 0);
 }
 
 MockaDockApp *
@@ -659,6 +610,9 @@ mocka_dock_button_class_init (MockaDockButtonClass *klass)
       = g_signal_new ("pin", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
   signals[SIGNAL_UNPIN]
       = g_signal_new ("unpin", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+  /* Left click on an app with several windows (SPEC section 7). */
+  signals[SIGNAL_TOGGLE_THUMBNAILS] = g_signal_new ("toggle-thumbnails", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
+                                                    0, NULL, NULL, NULL, G_TYPE_NONE, 0);
   widget_class->draw = mocka_dock_button_draw;
   button_class->clicked = mocka_dock_button_clicked;
 }

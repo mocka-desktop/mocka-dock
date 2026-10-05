@@ -22,6 +22,7 @@
 #include "dock-button.h"
 #include "dock-model.h"
 #include "pinned-list.h"
+#include "thumbnails.h"
 #include "undo-popup.h"
 #include "window-tracker.h"
 
@@ -55,7 +56,8 @@ struct _MockaDockApplet
   MockaAppIndex *index;
   MockaDockModel *model;
   MockaWindowTracker *tracker;
-  GtkWidget *undo_popup; /* "<App> unpinned" popup, while it shows */
+  GtkWidget *undo_popup;       /* "<App> unpinned" popup, while it shows */
+  MockaThumbnails *thumbnails; /* window thumbnails of the hovered app */
 
   /* Drag and drop (SPEC section 10). */
   guint drop_gap; /* gap of the pinned apps to drop at */
@@ -134,6 +136,7 @@ apply_orient (MockaDockApplet *self, MatePanelAppletOrient orient)
       GTK_BUTTON (self->arrow_end),
       gtk_image_new_from_icon_name (horizontal ? "pan-end-symbolic" : "pan-down-symbolic", GTK_ICON_SIZE_MENU));
   self->popup_side = popup_side_for_orient (orient);
+  mocka_thumbnails_set_side (self->thumbnails, self->popup_side);
   gtk_container_foreach (GTK_CONTAINER (self->box), set_button_popup_side, GINT_TO_POINTER (self->popup_side));
   update_size_hints (self);
 }
@@ -259,12 +262,47 @@ on_button_unpin (MockaDockButton *button, gpointer user_data)
   mocka_undo_popup_show_at (MOCKA_UNDO_POPUP (self->undo_popup), &rect, self->popup_side);
 }
 
-/* A click on the dock or a focus change counts as clicking elsewhere. */
+/*
+ * A click on the dock or a focus change counts as clicking elsewhere. A
+ * click also cancels a pending thumbnail popup (SPEC section 8), and hides
+ * one that shows, except for a plain left click on an app with several
+ * windows, which toggles it.
+ */
 static gboolean
 on_dock_button_press (GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 {
-  close_undo_popup (MOCKA_DOCK_APPLET (user_data));
+  MockaDockApplet *self = MOCKA_DOCK_APPLET (user_data);
+  MockaDockApp *app = mocka_dock_button_get_app (MOCKA_DOCK_BUTTON (widget));
+  GdkModifierType mods = event->state & gtk_accelerator_get_default_mod_mask ();
+
+  close_undo_popup (self);
+
+  if (event->button == GDK_BUTTON_PRIMARY && mods == 0 && mocka_dock_app_get_windows (app)->len > 1)
+    mocka_thumbnails_cancel (self->thumbnails);
+  else
+    mocka_thumbnails_hide (self->thumbnails);
+
   return FALSE;
+}
+
+static gboolean
+on_dock_button_enter (GtkWidget *widget, GdkEventCrossing *event, gpointer user_data)
+{
+  mocka_thumbnails_enter (MOCKA_DOCK_APPLET (user_data)->thumbnails, MOCKA_DOCK_BUTTON (widget));
+  return FALSE;
+}
+
+static gboolean
+on_dock_button_leave (GtkWidget *widget, GdkEventCrossing *event, gpointer user_data)
+{
+  mocka_thumbnails_leave (MOCKA_DOCK_APPLET (user_data)->thumbnails);
+  return FALSE;
+}
+
+static void
+on_toggle_thumbnails (MockaDockButton *button, gpointer user_data)
+{
+  mocka_thumbnails_toggle (MOCKA_DOCK_APPLET (user_data)->thumbnails, button);
 }
 
 static void
@@ -618,6 +656,11 @@ on_items_changed (GListModel *list, guint position, guint removed, guint added, 
       g_signal_connect (button, "pin", G_CALLBACK (on_button_pin), self);
       g_signal_connect (button, "unpin", G_CALLBACK (on_button_unpin), self);
       g_signal_connect (button, "button-press-event", G_CALLBACK (on_dock_button_press), self);
+      g_signal_connect (button, "enter-notify-event", G_CALLBACK (on_dock_button_enter), self);
+      g_signal_connect (button, "leave-notify-event", G_CALLBACK (on_dock_button_leave), self);
+      g_signal_connect (button, "toggle-thumbnails", G_CALLBACK (on_toggle_thumbnails), self);
+      g_signal_connect_object (button, "drag-begin", G_CALLBACK (mocka_thumbnails_hide), self->thumbnails,
+                               G_CONNECT_SWAPPED);
       gtk_box_pack_start (GTK_BOX (self->box), button, FALSE, FALSE, 0);
       gtk_box_reorder_child (GTK_BOX (self->box), button, (gint)(position + i));
       gtk_widget_show_all (button);
@@ -879,6 +922,7 @@ mocka_dock_applet_dispose (GObject *object)
   MockaDockApplet *self = MOCKA_DOCK_APPLET (object);
 
   close_undo_popup (self);
+  g_clear_object (&self->thumbnails);
   g_clear_object (&self->toplevel_settings);
   g_clear_object (&self->object_settings);
   g_clear_object (&self->settings);
@@ -934,6 +978,8 @@ mocka_dock_applet_init (MockaDockApplet *self)
 
   self->box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_container_add (GTK_CONTAINER (self->scroller), self->box);
+
+  self->thumbnails = mocka_thumbnails_new (GTK_WIDGET (self));
   gtk_viewport_set_shadow_type (GTK_VIEWPORT (gtk_bin_get_child (GTK_BIN (self->scroller))), GTK_SHADOW_NONE);
 
   g_signal_connect_swapped (gtk_scrolled_window_get_hadjustment (GTK_SCROLLED_WINDOW (self->scroller)), "changed",
