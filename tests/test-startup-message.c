@@ -11,10 +11,7 @@
 #include "startup-message.h"
 
 static void
-assert_value (const gchar *message,
-              const gchar *type,
-              const gchar *key,
-              const gchar *expected)
+assert_value (const gchar *message, const gchar *type, const gchar *key, const gchar *expected)
 {
   g_autofree gchar *value = mocka_startup_message_get_value (message, type, key);
 
@@ -60,8 +57,7 @@ test_type (void)
 }
 
 int
-main (int    argc,
-      char **argv)
+main (int argc, char **argv)
 {
   g_test_init (&argc, &argv, NULL);
 

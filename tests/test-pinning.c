@@ -18,8 +18,7 @@
 
 /* The list as space-separated IDs. */
 static void
-assert_list (gchar       **ids,
-             const gchar  *expected)
+assert_list (gchar **ids, const gchar *expected)
 {
   g_autofree gchar *joined = g_strjoinv (" ", ids);
 
@@ -58,13 +57,12 @@ static void
 test_remove_and_undo (void)
 {
   const gchar *ids[] = { "a", "b", "c", NULL };
-  g_auto(GStrv) removed = NULL;
+  g_auto (GStrv) removed = NULL;
   guint position;
 
   removed = mocka_pinned_list_remove (ids, "b", &position);
   g_assert_cmpuint (position, ==, 1);
-  assert_list (mocka_pinned_list_insert ((const gchar * const *) removed, "b",
-                                         position), "a b c");
+  assert_list (mocka_pinned_list_insert ((const gchar *const *)removed, "b", position), "a b c");
 
   assert_list (mocka_pinned_list_remove (ids, "x", &position), "a b c");
   g_assert_cmpuint (position, ==, 3);
@@ -89,8 +87,7 @@ typedef struct
 } Dirs;
 
 static void
-dirs_setup (Dirs          *dirs,
-            gconstpointer  data)
+dirs_setup (Dirs *dirs, gconstpointer data)
 {
   dirs->root = g_dir_make_tmp ("mocka-dock-test-XXXXXX", NULL);
   dirs->user_dir = g_build_filename (dirs->root, "user", "applications", NULL);
@@ -104,7 +101,7 @@ dirs_setup (Dirs          *dirs,
 static void
 remove_tree (const gchar *path)
 {
-  g_autoptr(GDir) dir = g_dir_open (path, 0, NULL);
+  g_autoptr (GDir) dir = g_dir_open (path, 0, NULL);
   const gchar *name;
 
   while (dir != NULL && (name = g_dir_read_name (dir)) != NULL)
@@ -121,8 +118,7 @@ remove_tree (const gchar *path)
 }
 
 static void
-dirs_teardown (Dirs          *dirs,
-               gconstpointer  data)
+dirs_teardown (Dirs *dirs, gconstpointer data)
 {
   remove_tree (dirs->root);
   g_free (dirs->root);
@@ -132,9 +128,7 @@ dirs_teardown (Dirs          *dirs,
 }
 
 static gchar *
-write_file (const gchar *dir,
-            const gchar *name,
-            const gchar *contents)
+write_file (const gchar *dir, const gchar *name, const gchar *contents)
 {
   gchar *path = g_build_filename (dir, name, NULL);
   g_autofree gchar *parent = g_path_get_dirname (path);
@@ -147,9 +141,7 @@ write_file (const gchar *dir,
 #define APP_ENTRY "[Desktop Entry]\nType=Application\nName=Tool\nExec=tool\n"
 
 static gchar *
-import (Dirs        *dirs,
-        const gchar *path,
-        GError     **error)
+import (Dirs *dirs, const gchar *path, GError **error)
 {
   const gchar *app_dirs[] = { dirs->user_dir, dirs->system_dir, NULL };
 
@@ -158,11 +150,9 @@ import (Dirs        *dirs,
 
 /* A file in an applications directory keeps its ID, subdirectories included. */
 static void
-test_import_installed (Dirs          *dirs,
-                       gconstpointer  data)
+test_import_installed (Dirs *dirs, gconstpointer data)
 {
-  g_autofree gchar *path = write_file (dirs->system_dir, "wine/Programs/tool.desktop",
-                                       APP_ENTRY);
+  g_autofree gchar *path = write_file (dirs->system_dir, "wine/Programs/tool.desktop", APP_ENTRY);
   g_autofree gchar *id = import (dirs, path, NULL);
 
   g_assert_cmpstr (id, ==, "wine-Programs-tool.desktop");
@@ -171,8 +161,7 @@ test_import_installed (Dirs          *dirs,
 
 /* Any other file is copied into the user's applications directory. */
 static void
-test_import_copy (Dirs          *dirs,
-                  gconstpointer  data)
+test_import_copy (Dirs *dirs, gconstpointer data)
 {
   g_autofree gchar *path = write_file (dirs->elsewhere, "tool.desktop", APP_ENTRY);
   g_autofree gchar *id = import (dirs, path, NULL);
@@ -186,8 +175,7 @@ test_import_copy (Dirs          *dirs,
 
 /* Dropping the same file again reuses the copy; a different one gets a new name. */
 static void
-test_import_names (Dirs          *dirs,
-                   gconstpointer  data)
+test_import_names (Dirs *dirs, gconstpointer data)
 {
   g_autofree gchar *path = write_file (dirs->elsewhere, "tool.desktop", APP_ENTRY);
   g_autofree gchar *other_dir = g_build_filename (dirs->elsewhere, "other", NULL);
@@ -205,16 +193,14 @@ test_import_names (Dirs          *dirs,
 
 /* Only application desktop entries are accepted. */
 static void
-test_import_refused (Dirs          *dirs,
-                     gconstpointer  data)
+test_import_refused (Dirs *dirs, gconstpointer data)
 {
   g_autofree gchar *link = write_file (dirs->elsewhere, "site.desktop",
                                        "[Desktop Entry]\nType=Link\nName=Site\n"
                                        "URL=https://example.org\n");
   g_autofree gchar *text = write_file (dirs->elsewhere, "notes.txt", "hello\n");
-  g_autofree gchar *broken = write_file (dirs->elsewhere, "broken.desktop",
-                                         "not a key file\n");
-  g_autoptr(GError) error = NULL;
+  g_autofree gchar *broken = write_file (dirs->elsewhere, "broken.desktop", "not a key file\n");
+  g_autoptr (GError) error = NULL;
   gchar *id;
 
   id = import (dirs, link, &error);
@@ -235,8 +221,7 @@ test_import_refused (Dirs          *dirs,
 }
 
 int
-main (int    argc,
-      char **argv)
+main (int argc, char **argv)
 {
   g_test_init (&argc, &argv, NULL);
 
@@ -244,14 +229,10 @@ main (int    argc,
   g_test_add_func ("/pinned-list/move", test_move);
   g_test_add_func ("/pinned-list/remove-and-undo", test_remove_and_undo);
   g_test_add_func ("/pinned-list/empty", test_empty);
-  g_test_add ("/desktop-import/installed", Dirs, NULL,
-              dirs_setup, test_import_installed, dirs_teardown);
-  g_test_add ("/desktop-import/copy", Dirs, NULL,
-              dirs_setup, test_import_copy, dirs_teardown);
-  g_test_add ("/desktop-import/names", Dirs, NULL,
-              dirs_setup, test_import_names, dirs_teardown);
-  g_test_add ("/desktop-import/refused", Dirs, NULL,
-              dirs_setup, test_import_refused, dirs_teardown);
+  g_test_add ("/desktop-import/installed", Dirs, NULL, dirs_setup, test_import_installed, dirs_teardown);
+  g_test_add ("/desktop-import/copy", Dirs, NULL, dirs_setup, test_import_copy, dirs_teardown);
+  g_test_add ("/desktop-import/names", Dirs, NULL, dirs_setup, test_import_names, dirs_teardown);
+  g_test_add ("/desktop-import/refused", Dirs, NULL, dirs_setup, test_import_refused, dirs_teardown);
 
   return g_test_run ();
 }

@@ -12,8 +12,6 @@
 
 G_BEGIN_DECLS
 
-gboolean mocka_recent_app_matches (MockaAppEntry *entry,
-                                   const gchar   *app_name,
-                                   const gchar   *app_exec);
+gboolean mocka_recent_app_matches (MockaAppEntry *entry, const gchar *app_name, const gchar *app_exec);
 
 G_END_DECLS

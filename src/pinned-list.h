@@ -10,11 +10,7 @@
 
 G_BEGIN_DECLS
 
-gchar **mocka_pinned_list_insert (const gchar * const *ids,
-                                  const gchar         *id,
-                                  guint                gap);
-gchar **mocka_pinned_list_remove (const gchar * const *ids,
-                                  const gchar         *id,
-                                  guint               *position);
+gchar **mocka_pinned_list_insert (const gchar *const *ids, const gchar *id, guint gap);
+gchar **mocka_pinned_list_remove (const gchar *const *ids, const gchar *id, guint *position);
 
 G_END_DECLS

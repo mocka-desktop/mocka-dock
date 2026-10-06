@@ -27,8 +27,8 @@ struct _MockaDockApp
   gchar *key;
   MockaAppEntry *entry;
   gboolean pinned;
-  GPtrArray *all_windows;  /* shown and hidden, oldest first */
-  GPtrArray *windows;      /* shown only, oldest first */
+  GPtrArray *all_windows; /* shown and hidden, oldest first */
+  GPtrArray *windows;     /* shown only, oldest first */
 };
 
 enum
@@ -61,9 +61,8 @@ mocka_dock_app_class_init (MockaDockAppClass *klass)
 
   object_class->finalize = mocka_dock_app_finalize;
 
-  app_signals[APP_SIGNAL_WINDOWS_CHANGED] =
-    g_signal_new ("windows-changed", G_TYPE_FROM_CLASS (klass),
-                  G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+  app_signals[APP_SIGNAL_WINDOWS_CHANGED] = g_signal_new ("windows-changed", G_TYPE_FROM_CLASS (klass),
+                                                          G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 static void
@@ -74,8 +73,7 @@ mocka_dock_app_init (MockaDockApp *self)
 }
 
 static MockaDockApp *
-mocka_dock_app_new (const gchar   *key,
-                    MockaAppEntry *entry)
+mocka_dock_app_new (const gchar *key, MockaAppEntry *entry)
 {
   MockaDockApp *self = g_object_new (MOCKA_TYPE_DOCK_APP, NULL);
 
@@ -140,19 +138,18 @@ struct _MockaDockModel
 {
   GObject parent_instance;
 
-  GPtrArray *apps;        /* every known app, owned, in start order */
-  GPtrArray *pinned;      /* pinned apps, in the user's order */
-  GPtrArray *listed;      /* the dock: pinned apps, then running ones */
-  GHashTable *by_key;     /* key → MockaDockApp */
-  GHashTable *by_window;  /* window → MockaDockApp */
-  GHashTable *hidden;     /* set of hidden windows */
+  GPtrArray *apps;       /* every known app, owned, in start order */
+  GPtrArray *pinned;     /* pinned apps, in the user's order */
+  GPtrArray *listed;     /* the dock: pinned apps, then running ones */
+  GHashTable *by_key;    /* key → MockaDockApp */
+  GHashTable *by_window; /* window → MockaDockApp */
+  GHashTable *hidden;    /* set of hidden windows */
 };
 
 static void mocka_dock_model_list_model_init (GListModelInterface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (MockaDockModel, mocka_dock_model, G_TYPE_OBJECT,
-                         G_IMPLEMENT_INTERFACE (G_TYPE_LIST_MODEL,
-                                                mocka_dock_model_list_model_init))
+                         G_IMPLEMENT_INTERFACE (G_TYPE_LIST_MODEL, mocka_dock_model_list_model_init))
 
 static GType
 mocka_dock_model_get_item_type (GListModel *list)
@@ -167,8 +164,7 @@ mocka_dock_model_get_n_items (GListModel *list)
 }
 
 static gpointer
-mocka_dock_model_get_item (GListModel *list,
-                           guint       position)
+mocka_dock_model_get_item (GListModel *list, guint position)
 {
   MockaDockModel *self = MOCKA_DOCK_MODEL (list);
 
@@ -228,10 +224,9 @@ mocka_dock_model_new (void)
 
 /* Rebuilds the app's shown windows, and says so when they changed. */
 static void
-refresh_windows (MockaDockModel *self,
-                 MockaDockApp   *app)
+refresh_windows (MockaDockModel *self, MockaDockApp *app)
 {
-  g_autoptr(GPtrArray) shown = g_ptr_array_new ();
+  g_autoptr (GPtrArray) shown = g_ptr_array_new ();
   gboolean changed;
   guint i;
 
@@ -265,7 +260,7 @@ refresh_windows (MockaDockModel *self,
 static void
 sync_listed (MockaDockModel *self)
 {
-  g_autoptr(GPtrArray) listed = g_ptr_array_new ();
+  g_autoptr (GPtrArray) listed = g_ptr_array_new ();
   guint prefix = 0, suffix = 0;
   guint old_len = self->listed->len;
   guint i;
@@ -280,21 +275,19 @@ sync_listed (MockaDockModel *self)
     }
 
   while (prefix < old_len && prefix < listed->len
-         && g_ptr_array_index (self->listed, prefix)
-            == g_ptr_array_index (listed, prefix))
+         && g_ptr_array_index (self->listed, prefix) == g_ptr_array_index (listed, prefix))
     prefix++;
 
   while (suffix < old_len - prefix && suffix < listed->len - prefix
          && g_ptr_array_index (self->listed, old_len - 1 - suffix)
-            == g_ptr_array_index (listed, listed->len - 1 - suffix))
+                == g_ptr_array_index (listed, listed->len - 1 - suffix))
     suffix++;
 
   if (prefix + suffix < old_len || prefix + suffix < listed->len)
     {
       g_ptr_array_set_size (self->listed, 0);
       g_ptr_array_extend (self->listed, listed, NULL, NULL);
-      g_list_model_items_changed (G_LIST_MODEL (self), prefix,
-                                  old_len - prefix - suffix,
+      g_list_model_items_changed (G_LIST_MODEL (self), prefix, old_len - prefix - suffix,
                                   listed->len - prefix - suffix);
     }
 
@@ -312,9 +305,7 @@ sync_listed (MockaDockModel *self)
 
 /* The app with this key, creating it after all known apps if needed. */
 static MockaDockApp *
-ensure_app (MockaDockModel *self,
-            const gchar    *key,
-            MockaAppEntry  *entry)
+ensure_app (MockaDockModel *self, const gchar *key, MockaAppEntry *entry)
 {
   MockaDockApp *app = g_hash_table_lookup (self->by_key, key);
 
@@ -337,8 +328,7 @@ ensure_app (MockaDockModel *self,
  * keep their button while they have shown windows, after the pinned ones.
  */
 void
-mocka_dock_model_set_pinned (MockaDockModel *self,
-                             GPtrArray      *entries)
+mocka_dock_model_set_pinned (MockaDockModel *self, GPtrArray *entries)
 {
   guint i;
 
@@ -346,7 +336,7 @@ mocka_dock_model_set_pinned (MockaDockModel *self,
   g_return_if_fail (entries != NULL);
 
   for (i = 0; i < self->pinned->len; i++)
-    ((MockaDockApp *) g_ptr_array_index (self->pinned, i))->pinned = FALSE;
+    ((MockaDockApp *)g_ptr_array_index (self->pinned, i))->pinned = FALSE;
   g_ptr_array_set_size (self->pinned, 0);
 
   for (i = 0; i < entries->len; i++)
@@ -365,8 +355,7 @@ mocka_dock_model_set_pinned (MockaDockModel *self,
 
 /* The app with this key, listed or not, or NULL. */
 MockaDockApp *
-mocka_dock_model_lookup (MockaDockModel *self,
-                         const gchar    *key)
+mocka_dock_model_lookup (MockaDockModel *self, const gchar *key)
 {
   g_return_val_if_fail (MOCKA_IS_DOCK_MODEL (self), NULL);
 
@@ -374,8 +363,7 @@ mocka_dock_model_lookup (MockaDockModel *self,
 }
 
 MockaDockApp *
-mocka_dock_model_get_window_app (MockaDockModel *self,
-                                 gpointer        window)
+mocka_dock_model_get_window_app (MockaDockModel *self, gpointer window)
 {
   g_return_val_if_fail (MOCKA_IS_DOCK_MODEL (self), NULL);
 
@@ -387,8 +375,7 @@ mocka_dock_model_get_window_app (MockaDockModel *self,
  * the dock, and is forgotten once it has no windows at all.
  */
 void
-mocka_dock_model_remove_window (MockaDockModel *self,
-                                gpointer        window)
+mocka_dock_model_remove_window (MockaDockModel *self, gpointer window)
 {
   MockaDockApp *app;
 
@@ -411,9 +398,7 @@ mocka_dock_model_remove_window (MockaDockModel *self,
  * (SPEC section 5).
  */
 void
-mocka_dock_model_set_window_visible (MockaDockModel *self,
-                                     gpointer        window,
-                                     gboolean        visible)
+mocka_dock_model_set_window_visible (MockaDockModel *self, gpointer window, gboolean visible)
 {
   MockaDockApp *app;
 
@@ -438,11 +423,8 @@ mocka_dock_model_set_window_visible (MockaDockModel *self,
  * moves to the new app, which is how a class change is handled.
  */
 void
-mocka_dock_model_add_window (MockaDockModel *self,
-                             gpointer        window,
-                             const gchar    *key,
-                             MockaAppEntry  *entry,
-                             gboolean        visible)
+mocka_dock_model_add_window (MockaDockModel *self, gpointer window, const gchar *key, MockaAppEntry *entry,
+                             gboolean visible)
 {
   MockaDockApp *app;
 
@@ -481,8 +463,7 @@ mocka_dock_model_add_window (MockaDockModel *self,
 
 /* The key of the app a window belongs to (see mocka_dock_app_get_key). */
 gchar *
-mocka_dock_app_key_for (MockaAppEntry *entry,
-                        const gchar   *res_class)
+mocka_dock_app_key_for (MockaAppEntry *entry, const gchar *res_class)
 {
   if (entry != NULL)
     return g_strdup (entry->id);

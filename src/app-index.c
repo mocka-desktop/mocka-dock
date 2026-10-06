@@ -23,10 +23,10 @@ struct _MockaAppIndex
 {
   GObject parent_instance;
 
-  gchar **dirs;           /* applications directories, highest precedence first */
-  GPtrArray *entries;     /* MockaAppEntry, owned */
-  GHashTable *by_id;      /* ID → MockaAppEntry */
-  GHashTable *tables[5];  /* MockaAppKey → (key → GPtrArray of MockaAppEntry) */
+  gchar **dirs;          /* applications directories, highest precedence first */
+  GPtrArray *entries;    /* MockaAppEntry, owned */
+  GHashTable *by_id;     /* ID → MockaAppEntry */
+  GHashTable *tables[5]; /* MockaAppKey → (key → GPtrArray of MockaAppEntry) */
   GAppInfoMonitor *monitor;
 };
 
@@ -62,7 +62,7 @@ mocka_app_entry_ref (MockaAppEntry *entry)
 void
 mocka_app_entry_unref (MockaAppEntry *entry)
 {
-  g_rc_box_release_full (entry, (GDestroyNotify) mocka_app_entry_clear);
+  g_rc_box_release_full (entry, (GDestroyNotify)mocka_app_entry_clear);
 }
 
 /* A field code is "%" followed by one letter, such as %U or %f. */
@@ -77,13 +77,12 @@ is_field_code (const gchar *arg)
  * Hidden, which the Desktop Entry specification treats as deleted.
  */
 static MockaAppEntry *
-load_entry (const gchar *path,
-            const gchar *id)
+load_entry (const gchar *path, const gchar *id)
 {
-  g_autoptr(GKeyFile) file = g_key_file_new ();
+  g_autoptr (GKeyFile) file = g_key_file_new ();
   g_autofree gchar *type = NULL;
   g_autofree gchar *try_exec = NULL;
-  g_auto(GStrv) argv = NULL;
+  g_auto (GStrv) argv = NULL;
   MockaAppEntry *entry;
   const gchar *group = G_KEY_FILE_DESKTOP_GROUP;
   int i;
@@ -101,16 +100,11 @@ load_entry (const gchar *path,
   entry = g_rc_box_new0 (MockaAppEntry);
   entry->id = g_strdup (id);
   entry->path = g_strdup (path);
-  entry->name = g_key_file_get_locale_string (file, group,
-      G_KEY_FILE_DESKTOP_KEY_NAME, NULL, NULL);
-  entry->icon = g_key_file_get_string (file, group,
-      G_KEY_FILE_DESKTOP_KEY_ICON, NULL);
-  entry->exec = g_key_file_get_string (file, group,
-      G_KEY_FILE_DESKTOP_KEY_EXEC, NULL);
-  entry->startup_wm_class = g_key_file_get_string (file, group,
-      G_KEY_FILE_DESKTOP_KEY_STARTUP_WM_CLASS, NULL);
-  entry->no_display = g_key_file_get_boolean (file, group,
-      G_KEY_FILE_DESKTOP_KEY_NO_DISPLAY, NULL);
+  entry->name = g_key_file_get_locale_string (file, group, G_KEY_FILE_DESKTOP_KEY_NAME, NULL, NULL);
+  entry->icon = g_key_file_get_string (file, group, G_KEY_FILE_DESKTOP_KEY_ICON, NULL);
+  entry->exec = g_key_file_get_string (file, group, G_KEY_FILE_DESKTOP_KEY_EXEC, NULL);
+  entry->startup_wm_class = g_key_file_get_string (file, group, G_KEY_FILE_DESKTOP_KEY_STARTUP_WM_CLASS, NULL);
+  entry->no_display = g_key_file_get_boolean (file, group, G_KEY_FILE_DESKTOP_KEY_NO_DISPLAY, NULL);
 
   if (entry->exec != NULL)
     g_shell_parse_argv (entry->exec, NULL, &argv, NULL);
@@ -124,8 +118,7 @@ load_entry (const gchar *path,
         }
     }
 
-  try_exec = g_key_file_get_string (file, group,
-      G_KEY_FILE_DESKTOP_KEY_TRY_EXEC, NULL);
+  try_exec = g_key_file_get_string (file, group, G_KEY_FILE_DESKTOP_KEY_TRY_EXEC, NULL);
   if (try_exec != NULL && *try_exec != '\0')
     entry->program_path = g_steal_pointer (&try_exec);
   else if (argv != NULL && argv[0] != NULL)
@@ -159,12 +152,9 @@ mocka_resolve_path (const gchar *path)
  * when that entry was Hidden.
  */
 static void
-add_dir (MockaAppIndex *self,
-         GHashTable    *seen,
-         const gchar   *dir,
-         const gchar   *prefix)
+add_dir (MockaAppIndex *self, GHashTable *seen, const gchar *dir, const gchar *prefix)
 {
-  g_autoptr(GDir) handle = g_dir_open (dir, 0, NULL);
+  g_autoptr (GDir) handle = g_dir_open (dir, 0, NULL);
   const gchar *name;
 
   if (handle == NULL)
@@ -184,8 +174,7 @@ add_dir (MockaAppIndex *self,
           continue;
         }
 
-      if (!g_str_has_suffix (name, ".desktop")
-          || g_hash_table_contains (seen, id))
+      if (!g_str_has_suffix (name, ".desktop") || g_hash_table_contains (seen, id))
         continue;
 
       g_hash_table_add (seen, g_strdup (id));
@@ -200,9 +189,7 @@ add_dir (MockaAppIndex *self,
 }
 
 static void
-table_add (GHashTable    *table,
-           gchar         *key,
-           MockaAppEntry *entry)
+table_add (GHashTable *table, gchar *key, MockaAppEntry *entry)
 {
   GPtrArray *list = g_hash_table_lookup (table, key);
 
@@ -224,11 +211,10 @@ table_add (GHashTable    *table,
  * arguments besides field codes first, then by ID.
  */
 static gint
-compare_entries (gconstpointer a,
-                 gconstpointer b)
+compare_entries (gconstpointer a, gconstpointer b)
 {
-  const MockaAppEntry *ea = *(MockaAppEntry * const *) a;
-  const MockaAppEntry *eb = *(MockaAppEntry * const *) b;
+  const MockaAppEntry *ea = *(MockaAppEntry *const *)a;
+  const MockaAppEntry *eb = *(MockaAppEntry *const *)b;
 
   if (ea->exec_has_args != eb->exec_has_args)
     return ea->exec_has_args ? 1 : -1;
@@ -249,26 +235,20 @@ build_tables (MockaAppIndex *self)
       gsize id_len = strlen (entry->id);
 
       if (entry->startup_wm_class != NULL)
-        table_add (self->tables[MOCKA_APP_KEY_STARTUP_WM_CLASS],
-                   g_strdup (entry->startup_wm_class), entry);
+        table_add (self->tables[MOCKA_APP_KEY_STARTUP_WM_CLASS], g_strdup (entry->startup_wm_class), entry);
 
-      table_add (self->tables[MOCKA_APP_KEY_ID],
-                 g_utf8_casefold (entry->id, id_len - strlen (".desktop")),
-                 entry);
+      table_add (self->tables[MOCKA_APP_KEY_ID], g_utf8_casefold (entry->id, id_len - strlen (".desktop")), entry);
 
       if (entry->program != NULL)
-        table_add (self->tables[MOCKA_APP_KEY_PROGRAM],
-                   g_utf8_casefold (entry->program, -1), entry);
+        table_add (self->tables[MOCKA_APP_KEY_PROGRAM], g_utf8_casefold (entry->program, -1), entry);
 
       /* Step 5 leaves out interpreters run with a script. */
       if (entry->program_path != NULL && !entry->exec_has_args)
         {
           if (strchr (entry->program_path, '/') != NULL)
-            table_add (self->tables[MOCKA_APP_KEY_EXECUTABLE],
-                       mocka_resolve_path (entry->program_path), entry);
+            table_add (self->tables[MOCKA_APP_KEY_EXECUTABLE], mocka_resolve_path (entry->program_path), entry);
           else
-            table_add (self->tables[MOCKA_APP_KEY_EXECUTABLE_NAME],
-                       g_strdup (entry->program_path), entry);
+            table_add (self->tables[MOCKA_APP_KEY_EXECUTABLE_NAME], g_strdup (entry->program_path), entry);
         }
     }
 
@@ -283,8 +263,7 @@ build_tables (MockaAppIndex *self)
 void
 mocka_app_index_reload (MockaAppIndex *self)
 {
-  g_autoptr(GHashTable) seen = g_hash_table_new_full (g_str_hash, g_str_equal,
-                                                      g_free, NULL);
+  g_autoptr (GHashTable) seen = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
   guint i;
 
   g_return_if_fail (MOCKA_IS_APP_INDEX (self));
@@ -307,8 +286,7 @@ mocka_app_index_reload (MockaAppIndex *self)
  * valid until the next reload; take a reference to keep it longer.
  */
 MockaAppEntry *
-mocka_app_index_lookup (MockaAppIndex *self,
-                        const gchar   *id)
+mocka_app_index_lookup (MockaAppIndex *self, const gchar *id)
 {
   g_return_val_if_fail (MOCKA_IS_APP_INDEX (self), NULL);
   g_return_val_if_fail (id != NULL, NULL);
@@ -321,9 +299,7 @@ mocka_app_index_lookup (MockaAppIndex *self,
  * NULL. The array is owned by the index and valid until the next reload.
  */
 GPtrArray *
-mocka_app_index_find (MockaAppIndex *self,
-                      MockaAppKey    key,
-                      const gchar   *value)
+mocka_app_index_find (MockaAppIndex *self, MockaAppKey key, const gchar *value)
 {
   g_autofree gchar *folded = NULL;
 
@@ -333,9 +309,7 @@ mocka_app_index_find (MockaAppIndex *self,
   if (value == NULL)
     return NULL;
 
-  if (key == MOCKA_APP_KEY_STARTUP_WM_CLASS
-      || key == MOCKA_APP_KEY_EXECUTABLE
-      || key == MOCKA_APP_KEY_EXECUTABLE_NAME)
+  if (key == MOCKA_APP_KEY_STARTUP_WM_CLASS || key == MOCKA_APP_KEY_EXECUTABLE || key == MOCKA_APP_KEY_EXECUTABLE_NAME)
     return g_hash_table_lookup (self->tables[key], value);
 
   folded = g_utf8_casefold (value, -1);
@@ -343,8 +317,7 @@ mocka_app_index_find (MockaAppIndex *self,
 }
 
 static void
-on_apps_changed (GAppInfoMonitor *monitor,
-                 gpointer         user_data)
+on_apps_changed (GAppInfoMonitor *monitor, gpointer user_data)
 {
   mocka_app_index_reload (MOCKA_APP_INDEX (user_data));
 }
@@ -375,9 +348,8 @@ mocka_app_index_class_init (MockaAppIndexClass *klass)
 
   object_class->finalize = mocka_app_index_finalize;
 
-  signals[SIGNAL_CHANGED] =
-    g_signal_new ("changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
-                  0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+  signals[SIGNAL_CHANGED]
+      = g_signal_new ("changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 static void
@@ -385,13 +357,11 @@ mocka_app_index_init (MockaAppIndex *self)
 {
   guint i;
 
-  self->entries = g_ptr_array_new_with_free_func (
-      (GDestroyNotify) mocka_app_entry_unref);
+  self->entries = g_ptr_array_new_with_free_func ((GDestroyNotify)mocka_app_entry_unref);
   self->by_id = g_hash_table_new (g_str_hash, g_str_equal);
 
   for (i = 0; i < G_N_ELEMENTS (self->tables); i++)
-    self->tables[i] = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
-                                             (GDestroyNotify) g_ptr_array_unref);
+    self->tables[i] = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, (GDestroyNotify)g_ptr_array_unref);
 }
 
 /*
@@ -399,11 +369,11 @@ mocka_app_index_init (MockaAppIndex *self)
  * precedence first, and loads it.
  */
 MockaAppIndex *
-mocka_app_index_new (const gchar * const *dirs)
+mocka_app_index_new (const gchar *const *dirs)
 {
   MockaAppIndex *self = g_object_new (MOCKA_TYPE_APP_INDEX, NULL);
 
-  self->dirs = g_strdupv ((gchar **) dirs);
+  self->dirs = g_strdupv ((gchar **)dirs);
   mocka_app_index_reload (self);
 
   return self;
@@ -416,24 +386,22 @@ mocka_app_index_new (const gchar * const *dirs)
 MockaAppIndex *
 mocka_app_index_new_for_system (void)
 {
-  const gchar * const *data_dirs = g_get_system_data_dirs ();
-  g_autoptr(GPtrArray) dirs = g_ptr_array_new_with_free_func (g_free);
+  const gchar *const *data_dirs = g_get_system_data_dirs ();
+  g_autoptr (GPtrArray) dirs = g_ptr_array_new_with_free_func (g_free);
   MockaAppIndex *self;
   guint i;
 
-  g_ptr_array_add (dirs, g_build_filename (g_get_user_data_dir (),
-                                           "applications", NULL));
+  g_ptr_array_add (dirs, g_build_filename (g_get_user_data_dir (), "applications", NULL));
   for (i = 0; data_dirs[i] != NULL; i++)
     g_ptr_array_add (dirs, g_build_filename (data_dirs[i], "applications", NULL));
   g_ptr_array_add (dirs, NULL);
 
-  self = mocka_app_index_new ((const gchar * const *) dirs->pdata);
+  self = mocka_app_index_new ((const gchar *const *)dirs->pdata);
 
   /* GAppInfoMonitor only reports changes once GIO has listed the apps. */
   self->monitor = g_app_info_monitor_get ();
   g_list_free_full (g_app_info_get_all (), g_object_unref);
-  g_signal_connect (self->monitor, "changed",
-                    G_CALLBACK (on_apps_changed), self);
+  g_signal_connect (self->monitor, "changed", G_CALLBACK (on_apps_changed), self);
 
   return self;
 }

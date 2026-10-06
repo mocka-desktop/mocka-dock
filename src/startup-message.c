@@ -55,9 +55,7 @@ read_value (const gchar **p)
  * key.
  */
 gchar *
-mocka_startup_message_get_value (const gchar *message,
-                                 const gchar *type,
-                                 const gchar *key)
+mocka_startup_message_get_value (const gchar *message, const gchar *type, const gchar *key)
 {
   gsize type_length = strlen (type);
   gsize key_length = strlen (key);

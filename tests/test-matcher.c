@@ -45,11 +45,10 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (Sample, sample_free)
 
 /* Returns the n-th quoted string of an xprop line, or NULL. */
 static gchar *
-quoted (const gchar *line,
-        guint        n)
+quoted (const gchar *line, guint n)
 {
-  g_autoptr(GRegex) regex = g_regex_new ("\"([^\"]*)\"", 0, 0, NULL);
-  g_autoptr(GMatchInfo) info = NULL;
+  g_autoptr (GRegex) regex = g_regex_new ("\"([^\"]*)\"", 0, 0, NULL);
+  g_autoptr (GMatchInfo) info = NULL;
   guint i;
 
   g_regex_match (regex, line, 0, &info);
@@ -67,7 +66,7 @@ static Sample *
 sample_load (const gchar *path)
 {
   g_autofree gchar *contents = NULL;
-  g_auto(GStrv) lines = NULL;
+  g_auto (GStrv) lines = NULL;
   Sample *sample = g_new0 (Sample, 1);
   guint i;
 
@@ -82,8 +81,7 @@ sample_load (const gchar *path)
         {
           sample->expect = g_strdup (line + strlen ("# expect: "));
         }
-      else if (g_str_has_prefix (line, "WM_CLASS = ")
-               || g_str_has_prefix (line, "# WM_CLASS = "))
+      else if (g_str_has_prefix (line, "WM_CLASS = ") || g_str_has_prefix (line, "# WM_CLASS = "))
         {
           g_free (sample->instance);
           g_free (sample->res_class);
@@ -100,8 +98,7 @@ sample_load (const gchar *path)
           g_free (sample->executable);
           sample->executable = g_strdup (line + strlen ("executable = "));
         }
-      else if (g_str_has_prefix (line, "leader _NET_STARTUP_ID = ")
-               && sample->startup_id == NULL)
+      else if (g_str_has_prefix (line, "leader _NET_STARTUP_ID = ") && sample->startup_id == NULL)
         {
           sample->startup_id = quoted (line, 0);
         }
@@ -114,16 +111,15 @@ static void
 test_sample (gconstpointer data)
 {
   g_autofree gchar *path = g_build_filename (TEST_DATA_DIR, data, NULL);
-  g_autoptr(Sample) sample = sample_load (path);
-  g_autoptr(MockaAppEntry) entry = NULL;
+  g_autoptr (Sample) sample = sample_load (path);
+  g_autoptr (MockaAppEntry) entry = NULL;
   MockaMatchStep step;
 
   g_assert_nonnull (sample->expect);
   g_assert_nonnull (sample->instance);
   g_assert_nonnull (sample->res_class);
 
-  entry = mocka_matcher_match (fixture_index, sample->instance,
-                               sample->res_class, sample->executable,
+  entry = mocka_matcher_match (fixture_index, sample->instance, sample->res_class, sample->executable,
                                sample->startup_id, NULL, &step);
 
   if (strcmp (sample->expect, "none") == 0)
@@ -141,15 +137,14 @@ test_sample (gconstpointer data)
 /* Helpers for made-up desktop entry directories. */
 
 static void
-write_entry (const gchar *dir,
-             const gchar *relative_path,
-             const gchar *keys)
+write_entry (const gchar *dir, const gchar *relative_path, const gchar *keys)
 {
   g_autofree gchar *path = g_build_filename (dir, relative_path, NULL);
   g_autofree gchar *parent = g_path_get_dirname (path);
   g_autofree gchar *contents = g_strconcat ("[Desktop Entry]\n"
                                             "Type=Application\n"
-                                            "Name=Test\n", keys, NULL);
+                                            "Name=Test\n",
+                                            keys, NULL);
 
   g_assert_cmpint (g_mkdir_with_parents (parent, 0700), ==, 0);
   g_assert_true (g_file_set_contents (path, contents, -1, NULL));
@@ -158,7 +153,7 @@ write_entry (const gchar *dir,
 static void
 remove_tree (const gchar *path)
 {
-  g_autoptr(GDir) dir = g_dir_open (path, 0, NULL);
+  g_autoptr (GDir) dir = g_dir_open (path, 0, NULL);
   const gchar *name;
 
   while (dir != NULL && (name = g_dir_read_name (dir)) != NULL)
@@ -192,17 +187,13 @@ index_for (const gchar *dir)
 }
 
 static void
-assert_match (MockaAppIndex  *index,
-              const gchar    *instance,
-              const gchar    *res_class,
-              const gchar    *expect,
-              MockaMatchStep  expect_step)
+assert_match (MockaAppIndex *index, const gchar *instance, const gchar *res_class, const gchar *expect,
+              MockaMatchStep expect_step)
 {
-  g_autoptr(MockaAppEntry) entry = NULL;
+  g_autoptr (MockaAppEntry) entry = NULL;
   MockaMatchStep step;
 
-  entry = mocka_matcher_match (index, instance, res_class, NULL, NULL, NULL,
-                               &step);
+  entry = mocka_matcher_match (index, instance, res_class, NULL, NULL, NULL, &step);
   g_assert_nonnull (entry);
   g_assert_cmpstr (entry->id, ==, expect);
   g_assert_cmpint (step, ==, expect_step);
@@ -213,7 +204,7 @@ static void
 test_hidden_loses (void)
 {
   g_autofree gchar *dir = make_dir ();
-  g_autoptr(MockaAppIndex) index = NULL;
+  g_autoptr (MockaAppIndex) index = NULL;
 
   write_entry (dir, "files.desktop", "Exec=/usr/bin/tool --browser %U\n");
   write_entry (dir, "tool.desktop", "Exec=tool\nNoDisplay=true\n");
@@ -228,7 +219,7 @@ static void
 test_hidden_fallback (void)
 {
   g_autofree gchar *dir = make_dir ();
-  g_autoptr(MockaAppIndex) index = NULL;
+  g_autoptr (MockaAppIndex) index = NULL;
 
   write_entry (dir, "tool.desktop", "Exec=tool\nNoDisplay=true\n");
   write_entry (dir, "other.desktop", "Exec=other\n");
@@ -243,7 +234,7 @@ static void
 test_tie_break (void)
 {
   g_autofree gchar *dir = make_dir ();
-  g_autoptr(MockaAppIndex) index = NULL;
+  g_autoptr (MockaAppIndex) index = NULL;
 
   write_entry (dir, "a.desktop", "Exec=tool --window\n");
   write_entry (dir, "c.desktop", "Exec=tool\n");
@@ -259,13 +250,11 @@ static void
 test_try_exec (void)
 {
   g_autofree gchar *dir = make_dir ();
-  g_autoptr(MockaAppIndex) index = NULL;
+  g_autoptr (MockaAppIndex) index = NULL;
 
-  write_entry (dir, "launcher.desktop",
-               "TryExec=/usr/local/bin/real-tool\nExec=wrapper %U\n");
+  write_entry (dir, "launcher.desktop", "TryExec=/usr/local/bin/real-tool\nExec=wrapper %U\n");
   index = index_for (dir);
-  assert_match (index, "real-tool", "Real-tool", "launcher.desktop",
-                MOCKA_MATCH_PROGRAM);
+  assert_match (index, "real-tool", "Real-tool", "launcher.desktop", MOCKA_MATCH_PROGRAM);
 
   remove_tree (dir);
 }
@@ -275,13 +264,12 @@ static void
 test_instance_first (void)
 {
   g_autofree gchar *dir = make_dir ();
-  g_autoptr(MockaAppIndex) index = NULL;
+  g_autoptr (MockaAppIndex) index = NULL;
 
   write_entry (dir, "browser.desktop", "Exec=browser\nStartupWMClass=Browser\n");
   write_entry (dir, "webapp.desktop", "Exec=browser --app\nStartupWMClass=crx_x\n");
   index = index_for (dir);
-  assert_match (index, "crx_x", "Browser", "webapp.desktop",
-                MOCKA_MATCH_STARTUP_WM_CLASS_INSTANCE);
+  assert_match (index, "crx_x", "Browser", "webapp.desktop", MOCKA_MATCH_STARTUP_WM_CLASS_INSTANCE);
 
   remove_tree (dir);
 }
@@ -290,37 +278,32 @@ test_instance_first (void)
 static void
 test_startup_id (void)
 {
-  g_autoptr(GHashTable) launches = g_hash_table_new (g_str_hash, g_str_equal);
-  g_autoptr(MockaAppEntry) entry = NULL;
+  g_autoptr (GHashTable) launches = g_hash_table_new (g_str_hash, g_str_equal);
+  g_autoptr (MockaAppEntry) entry = NULL;
   MockaMatchStep step;
 
   g_hash_table_insert (launches, "mocka-dock-1_TIME0", "libreoffice-writer.desktop");
 
-  entry = mocka_matcher_match (fixture_index, "soffice", "Soffice",
-                               NULL, "mocka-dock-1_TIME0", launches, &step);
+  entry = mocka_matcher_match (fixture_index, "soffice", "Soffice", NULL, "mocka-dock-1_TIME0", launches, &step);
   g_assert_nonnull (entry);
   g_assert_cmpstr (entry->id, ==, "libreoffice-writer.desktop");
   g_assert_cmpint (step, ==, MOCKA_MATCH_STARTUP_ID);
   g_clear_pointer (&entry, mocka_app_entry_unref);
 
   /* Launched by another program: not in the table. */
-  entry = mocka_matcher_match (fixture_index, "soffice", "Soffice",
-                               NULL, "brisk-menu-1_TIME0", launches, &step);
+  entry = mocka_matcher_match (fixture_index, "soffice", "Soffice", NULL, "brisk-menu-1_TIME0", launches, &step);
   g_assert_null (entry);
   g_assert_cmpint (step, ==, MOCKA_MATCH_NONE);
 }
 
 static void
-assert_executable_match (MockaAppIndex  *index,
-                         const gchar    *executable,
-                         const gchar    *expect)
+assert_executable_match (MockaAppIndex *index, const gchar *executable, const gchar *expect)
 {
-  g_autoptr(MockaAppEntry) entry = NULL;
+  g_autoptr (MockaAppEntry) entry = NULL;
   MockaMatchStep step;
 
   /* Window names that match nothing, as for a menu editor's entry. */
-  entry = mocka_matcher_match (index, "unknown-app", "Unknown-app", executable,
-                               NULL, NULL, &step);
+  entry = mocka_matcher_match (index, "unknown-app", "Unknown-app", executable, NULL, NULL, &step);
   if (expect == NULL)
     {
       g_assert_null (entry);
@@ -337,10 +320,9 @@ static void
 test_executable_path (void)
 {
   g_autofree gchar *dir = make_dir ();
-  g_autoptr(MockaAppIndex) index = NULL;
+  g_autoptr (MockaAppIndex) index = NULL;
 
-  write_entry (dir, "editor-made.desktop",
-               "Exec='/opt/ide-1.0/bin/ide' %f\n");
+  write_entry (dir, "editor-made.desktop", "Exec='/opt/ide-1.0/bin/ide' %f\n");
   write_entry (dir, "other.desktop", "Exec=/opt/other/bin/ide\n");
   index = index_for (dir);
   assert_executable_match (index, "/opt/ide-1.0/bin/ide", "editor-made.desktop");
@@ -354,7 +336,7 @@ static void
 test_executable_name (void)
 {
   g_autofree gchar *dir = make_dir ();
-  g_autoptr(MockaAppIndex) index = NULL;
+  g_autoptr (MockaAppIndex) index = NULL;
 
   write_entry (dir, "tool.desktop", "Exec=tool %f\n");
   index = index_for (dir);
@@ -368,10 +350,9 @@ static void
 test_executable_interpreter (void)
 {
   g_autofree gchar *dir = make_dir ();
-  g_autoptr(MockaAppIndex) index = NULL;
+  g_autoptr (MockaAppIndex) index = NULL;
 
-  write_entry (dir, "script.desktop",
-               "Exec=/usr/local/bin/python3 /usr/local/share/script/main.py\n");
+  write_entry (dir, "script.desktop", "Exec=/usr/local/bin/python3 /usr/local/share/script/main.py\n");
   write_entry (dir, "python.desktop", "Exec=python3 /opt/other.py\n");
   index = index_for (dir);
   assert_executable_match (index, "/usr/local/bin/python3", NULL);
@@ -387,7 +368,7 @@ test_executable_link (void)
   g_autofree gchar *real = g_build_filename (dir, "real-tool", NULL);
   g_autofree gchar *link = g_build_filename (dir, "link-tool", NULL);
   g_autofree gchar *keys = g_strdup_printf ("Exec=%s\n", link);
-  g_autoptr(MockaAppIndex) index = NULL;
+  g_autoptr (MockaAppIndex) index = NULL;
   g_autofree gchar *resolved = NULL;
 
   g_assert_true (g_file_set_contents (real, "", -1, NULL));
@@ -411,7 +392,7 @@ test_precedence (void)
   g_autofree gchar *high = make_dir ();
   g_autofree gchar *low = make_dir ();
   const gchar *dirs[] = { high, low, NULL };
-  g_autoptr(MockaAppIndex) index = NULL;
+  g_autoptr (MockaAppIndex) index = NULL;
   MockaAppEntry *entry;
 
   write_entry (high, "app.desktop", "Exec=app-high\n");
@@ -434,13 +415,11 @@ static void
 test_subdir_id (void)
 {
   g_autofree gchar *dir = make_dir ();
-  g_autoptr(MockaAppIndex) index = NULL;
+  g_autoptr (MockaAppIndex) index = NULL;
 
-  write_entry (dir, "wine/Programs/notepad.desktop",
-               "Exec=wine notepad.exe\nStartupWMClass=notepad.exe\n");
+  write_entry (dir, "wine/Programs/notepad.desktop", "Exec=wine notepad.exe\nStartupWMClass=notepad.exe\n");
   index = index_for (dir);
-  assert_match (index, "notepad.exe", "notepad.exe",
-                "wine-Programs-notepad.desktop",
+  assert_match (index, "notepad.exe", "notepad.exe", "wine-Programs-notepad.desktop",
                 MOCKA_MATCH_STARTUP_WM_CLASS_INSTANCE);
 
   remove_tree (dir);
@@ -452,11 +431,10 @@ test_not_application (void)
 {
   g_autofree gchar *dir = make_dir ();
   g_autofree gchar *path = g_build_filename (dir, "link.desktop", NULL);
-  g_autoptr(MockaAppIndex) index = NULL;
+  g_autoptr (MockaAppIndex) index = NULL;
 
-  g_assert_true (g_file_set_contents (path,
-      "[Desktop Entry]\nType=Link\nName=Link\nURL=https://example.org\n",
-      -1, NULL));
+  g_assert_true (
+      g_file_set_contents (path, "[Desktop Entry]\nType=Link\nName=Link\nURL=https://example.org\n", -1, NULL));
   index = index_for (dir);
   g_assert_null (mocka_app_index_lookup (index, "link.desktop"));
 
@@ -464,10 +442,9 @@ test_not_application (void)
 }
 
 static void
-on_changed (MockaAppIndex *index,
-            gpointer       user_data)
+on_changed (MockaAppIndex *index, gpointer user_data)
 {
-  (*(guint *) user_data)++;
+  (*(guint *)user_data)++;
 }
 
 /* Reload picks up new entries and announces the change. */
@@ -475,7 +452,7 @@ static void
 test_reload (void)
 {
   g_autofree gchar *dir = make_dir ();
-  g_autoptr(MockaAppIndex) index = NULL;
+  g_autoptr (MockaAppIndex) index = NULL;
   guint changed = 0;
 
   index = index_for (dir);
@@ -491,19 +468,17 @@ test_reload (void)
 }
 
 static gint
-compare_names (gconstpointer a,
-               gconstpointer b)
+compare_names (gconstpointer a, gconstpointer b)
 {
-  return strcmp (*(const gchar * const *) a, *(const gchar * const *) b);
+  return strcmp (*(const gchar *const *)a, *(const gchar *const *)b);
 }
 
 int
-main (int    argc,
-      char **argv)
+main (int argc, char **argv)
 {
   const gchar *dirs[] = { TEST_DATA_DIR "/applications", NULL };
-  g_autoptr(GDir) data_dir = NULL;
-  g_autoptr(GPtrArray) samples = g_ptr_array_new ();
+  g_autoptr (GDir) data_dir = NULL;
+  g_autoptr (GPtrArray) samples = g_ptr_array_new ();
   const gchar *name;
   guint i;
   int ret;
@@ -526,7 +501,7 @@ main (int    argc,
 
       name = g_ptr_array_index (samples, i);
       test_path = g_strdup_printf ("/matcher/sample/%s", name);
-      g_test_add_data_func_full (test_path, (gpointer) name, test_sample, g_free);
+      g_test_add_data_func_full (test_path, (gpointer)name, test_sample, g_free);
     }
 
   g_test_add_func ("/matcher/hidden-loses", test_hidden_loses);

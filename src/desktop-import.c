@@ -28,8 +28,7 @@
  * it lies elsewhere.
  */
 static gchar *
-id_in_dir (const gchar *path,
-           const gchar *dir)
+id_in_dir (const gchar *path, const gchar *dir)
 {
   g_autofree gchar *resolved_dir = mocka_resolve_path (dir);
   gsize length = strlen (resolved_dir);
@@ -45,28 +44,24 @@ id_in_dir (const gchar *path,
 
 /* Only application entries can be pinned. */
 static gboolean
-check_application (const gchar  *path,
-                   GError      **error)
+check_application (const gchar *path, GError **error)
 {
-  g_autoptr(GKeyFile) file = g_key_file_new ();
+  g_autoptr (GKeyFile) file = g_key_file_new ();
   g_autofree gchar *type = NULL;
 
   if (!g_str_has_suffix (path, ".desktop"))
     {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-                   "%s is not a desktop entry", path);
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA, "%s is not a desktop entry", path);
       return FALSE;
     }
 
   if (!g_key_file_load_from_file (file, path, G_KEY_FILE_NONE, error))
     return FALSE;
 
-  type = g_key_file_get_string (file, G_KEY_FILE_DESKTOP_GROUP,
-                                G_KEY_FILE_DESKTOP_KEY_TYPE, NULL);
+  type = g_key_file_get_string (file, G_KEY_FILE_DESKTOP_GROUP, G_KEY_FILE_DESKTOP_KEY_TYPE, NULL);
   if (g_strcmp0 (type, G_KEY_FILE_DESKTOP_TYPE_APPLICATION) != 0)
     {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-                   "%s is not an application", path);
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA, "%s is not an application", path);
       return FALSE;
     }
 
@@ -81,10 +76,7 @@ check_application (const gchar  *path,
  * picked, such as app-2.desktop.
  */
 gchar *
-mocka_desktop_import (const gchar         *path,
-                      const gchar * const *app_dirs,
-                      const gchar         *user_dir,
-                      GError             **error)
+mocka_desktop_import (const gchar *path, const gchar *const *app_dirs, const gchar *user_dir, GError **error)
 {
   g_autofree gchar *resolved = NULL;
   g_autofree gchar *contents = NULL;
@@ -112,8 +104,7 @@ mocka_desktop_import (const gchar         *path,
 
   if (g_mkdir_with_parents (user_dir, 0700) != 0)
     {
-      g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno),
-                   "Cannot create %s", user_dir);
+      g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno), "Cannot create %s", user_dir);
       return NULL;
     }
 
@@ -122,8 +113,8 @@ mocka_desktop_import (const gchar         *path,
 
   for (i = 1; i < 1000; i++)
     {
-      g_autofree gchar *name = i == 1 ? g_strconcat (base, ".desktop", NULL)
-                                      : g_strdup_printf ("%s-%u.desktop", base, i);
+      g_autofree gchar *name
+          = i == 1 ? g_strconcat (base, ".desktop", NULL) : g_strdup_printf ("%s-%u.desktop", base, i);
       g_autofree gchar *target = g_build_filename (user_dir, name, NULL);
       g_autofree gchar *existing = NULL;
       gsize existing_length;
@@ -140,7 +131,6 @@ mocka_desktop_import (const gchar         *path,
       return g_steal_pointer (&name);
     }
 
-  g_set_error (error, G_IO_ERROR, G_IO_ERROR_EXISTS,
-               "No free name for %s in %s", base, user_dir);
+  g_set_error (error, G_IO_ERROR, G_IO_ERROR_EXISTS, "No free name for %s in %s", base, user_dir);
   return NULL;
 }

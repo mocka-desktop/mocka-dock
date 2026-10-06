@@ -20,7 +20,7 @@
 #include <glib/gi18n-lib.h>
 
 #define UNDO_TIMEOUT_SECONDS 5
-#define GAP 4  /* pixels between the button and the popup */
+#define GAP 4 /* pixels between the button and the popup */
 
 struct _MockaUndoPopup
 {
@@ -50,8 +50,7 @@ on_timeout (gpointer user_data)
 }
 
 static void
-on_undo_clicked (GtkButton *button,
-                 gpointer   user_data)
+on_undo_clicked (GtkButton *button, gpointer user_data)
 {
   MockaUndoPopup *self = MOCKA_UNDO_POPUP (user_data);
 
@@ -64,9 +63,7 @@ on_undo_clicked (GtkButton *button,
  * from the panel, kept inside the monitor. button is in screen pixels.
  */
 void
-mocka_undo_popup_show_at (MockaUndoPopup     *self,
-                          const GdkRectangle *button,
-                          GtkPositionType     side)
+mocka_undo_popup_show_at (MockaUndoPopup *self, const GdkRectangle *button, GtkPositionType side)
 {
   GtkWidget *widget = GTK_WIDGET (self);
   GdkDisplay *display = gtk_widget_get_display (widget);
@@ -78,9 +75,7 @@ mocka_undo_popup_show_at (MockaUndoPopup     *self,
   g_return_if_fail (MOCKA_IS_UNDO_POPUP (self));
 
   gtk_widget_get_preferred_size (widget, NULL, &size);
-  monitor = gdk_display_get_monitor_at_point (display,
-                                              button->x + button->width / 2,
-                                              button->y + button->height / 2);
+  monitor = gdk_display_get_monitor_at_point (display, button->x + button->width / 2, button->y + button->height / 2);
   gdk_monitor_get_workarea (monitor, &area);
 
   switch (side)
@@ -111,8 +106,7 @@ mocka_undo_popup_show_at (MockaUndoPopup     *self,
   gtk_widget_show_all (widget);
 
   if (self->timeout_id == 0)
-    self->timeout_id = g_timeout_add_seconds (UNDO_TIMEOUT_SECONDS,
-                                              on_timeout, self);
+    self->timeout_id = g_timeout_add_seconds (UNDO_TIMEOUT_SECONDS, on_timeout, self);
 }
 
 static void
@@ -132,9 +126,8 @@ mocka_undo_popup_class_init (MockaUndoPopupClass *klass)
 
   widget_class->destroy = mocka_undo_popup_destroy;
 
-  signals[SIGNAL_UNDO] =
-    g_signal_new ("undo", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
-                  0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+  signals[SIGNAL_UNDO]
+      = g_signal_new ("undo", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 static void
@@ -142,21 +135,19 @@ mocka_undo_popup_init (MockaUndoPopup *self)
 {
   gtk_window_set_type_hint (GTK_WINDOW (self), GDK_WINDOW_TYPE_HINT_POPUP_MENU);
   gtk_window_set_resizable (GTK_WINDOW (self), FALSE);
-  gtk_style_context_add_class (gtk_widget_get_style_context (GTK_WIDGET (self)),
-                               "mocka-undo-popup");
+  gtk_style_context_add_class (gtk_widget_get_style_context (GTK_WIDGET (self)), "mocka-undo-popup");
 }
 
 GtkWidget *
 mocka_undo_popup_new (const gchar *app_name)
 {
-  MockaUndoPopup *self = g_object_new (MOCKA_TYPE_UNDO_POPUP,
-                                       "type", GTK_WINDOW_POPUP, NULL);
+  MockaUndoPopup *self = g_object_new (MOCKA_TYPE_UNDO_POPUP, "type", GTK_WINDOW_POPUP, NULL);
   GtkWidget *box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
-  GtkWidget *undo = gtk_button_new_with_mnemonic (_("_Undo"));
+  GtkWidget *undo = gtk_button_new_with_mnemonic (_ ("_Undo"));
   g_autofree gchar *text = NULL;
 
   /* Translators: %s is an application name, such as "Firefox". */
-  text = g_strdup_printf (_("%s unpinned"), app_name);
+  text = g_strdup_printf (_ ("%s unpinned"), app_name);
 
   gtk_container_set_border_width (GTK_CONTAINER (box), 8);
   gtk_container_add (GTK_CONTAINER (box), gtk_label_new (text));
