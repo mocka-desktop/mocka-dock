@@ -156,7 +156,7 @@ mocka_dock_applet_change_size (MatePanelApplet *applet, guint size)
 {
   MockaDockApplet *self = MOCKA_DOCK_APPLET (applet);
 
-  self->size = size;
+  self->size = (gint)size;
   gtk_container_foreach (GTK_CONTAINER (self->box), set_button_size, GINT_TO_POINTER (self->size));
   update_size_hints (self);
 }
@@ -411,8 +411,10 @@ on_box_draw (GtkWidget *box, cairo_t *cr, gpointer user_data)
  * running app that is not pinned only pins when dropped among the pinned
  * apps.
  */
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) the signal fixes this signature */
 static gboolean
 on_drag_motion (GtkWidget *widget, GdkDragContext *context, gint x, gint y, guint time, gpointer user_data)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   MockaDockApplet *self = MOCKA_DOCK_APPLET (user_data);
   GtkWidget *source = gtk_drag_get_source_widget (context);
@@ -420,6 +422,7 @@ on_drag_motion (GtkWidget *widget, GdkDragContext *context, gint x, gint y, guin
 
   if (gtk_drag_dest_find_target (widget, context, NULL) == GDK_NONE)
     {
+      /* NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) GdkDragAction has no value for refusing a drop */
       gdk_drag_status (context, 0, time);
       return FALSE;
     }
@@ -446,8 +449,10 @@ on_drag_leave (GtkWidget *widget, GdkDragContext *context, guint time, gpointer 
   set_drop_marker (MOCKA_DOCK_APPLET (user_data), FALSE);
 }
 
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) the signal fixes this signature */
 static gboolean
 on_drag_drop (GtkWidget *widget, GdkDragContext *context, gint x, gint y, guint time, gpointer user_data)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   GdkAtom target = gtk_drag_dest_find_target (widget, context, NULL);
 
@@ -536,9 +541,11 @@ pin_dropped_files (MockaDockApplet *self, gchar **uris)
   return ids->len;
 }
 
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) the signal fixes this signature */
 static void
 on_drag_data_received (GtkWidget *widget, GdkDragContext *context, gint x, gint y, GtkSelectionData *data, guint info,
                        guint time, gpointer user_data)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   MockaDockApplet *self = MOCKA_DOCK_APPLET (user_data);
   gboolean success = FALSE;
@@ -582,8 +589,10 @@ on_launch_state_changed (MockaWindowTracker *tracker, const gchar *desktop_id, g
 }
 
 /* Keeps the buttons in the same order as the apps in the model. */
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) the signal fixes this signature */
 static void
 on_items_changed (GListModel *list, guint position, guint removed, guint added, gpointer user_data)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   MockaDockApplet *self = MOCKA_DOCK_APPLET (user_data);
   GList *children = gtk_container_get_children (GTK_CONTAINER (self->box));
@@ -610,7 +619,7 @@ on_items_changed (GListModel *list, guint position, guint removed, guint added, 
       g_signal_connect (button, "unpin", G_CALLBACK (on_button_unpin), self);
       g_signal_connect (button, "button-press-event", G_CALLBACK (on_dock_button_press), self);
       gtk_box_pack_start (GTK_BOX (self->box), button, FALSE, FALSE, 0);
-      gtk_box_reorder_child (GTK_BOX (self->box), button, position + i);
+      gtk_box_reorder_child (GTK_BOX (self->box), button, (gint)(position + i));
       gtk_widget_show_all (button);
     }
 
@@ -737,7 +746,7 @@ update_size_hints (MockaDockApplet *self)
    * Buttons are squares of the panel's size. Worked out rather than asked
    * of GTK, which gives no size for widgets that are not shown yet.
    */
-  gint wanted = g_list_length (buttons) * size;
+  gint wanted = (gint)g_list_length (buttons) * size;
   gint least = size + 2 * ARROW_LENGTH;
 
   if (self->toplevel_settings != NULL && g_settings_get_boolean (self->toplevel_settings, "expand"))
@@ -948,7 +957,7 @@ mocka_dock_applet_setup (MockaDockApplet *self)
   mate_panel_applet_set_flags (applet, MATE_PANEL_APPLET_EXPAND_MAJOR | MATE_PANEL_APPLET_EXPAND_MINOR);
   mate_panel_applet_set_background_widget (applet, GTK_WIDGET (self));
 
-  self->size = mate_panel_applet_get_size (applet);
+  self->size = (gint)mate_panel_applet_get_size (applet);
   apply_orient (self, mate_panel_applet_get_orient (applet));
 
   self->index = mocka_app_index_new_for_system ();

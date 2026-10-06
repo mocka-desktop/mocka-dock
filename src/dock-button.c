@@ -225,25 +225,30 @@ draw_bar (MockaDockButton *self, cairo_t *cr, const GdkRGBA *color)
   gint height = gtk_widget_get_allocated_height (GTK_WIDGET (self));
   gint thickness = MAX (2, MIN (width, height) / 16);
   gint length;
+  gint start; /* whole pixels, so the bar stays sharp */
 
   switch (self->popup_side)
     {
     case GTK_POS_BOTTOM:
       length = width * 3 / 5;
-      cairo_rectangle (cr, (width - length) / 2, 0, length, thickness);
+      start = (width - length) / 2;
+      cairo_rectangle (cr, start, 0, length, thickness);
       break;
     case GTK_POS_LEFT:
       length = height * 3 / 5;
-      cairo_rectangle (cr, width - thickness, (height - length) / 2, thickness, length);
+      start = (height - length) / 2;
+      cairo_rectangle (cr, width - thickness, start, thickness, length);
       break;
     case GTK_POS_RIGHT:
       length = height * 3 / 5;
-      cairo_rectangle (cr, 0, (height - length) / 2, thickness, length);
+      start = (height - length) / 2;
+      cairo_rectangle (cr, 0, start, thickness, length);
       break;
     case GTK_POS_TOP:
     default:
       length = width * 3 / 5;
-      cairo_rectangle (cr, (width - length) / 2, height - thickness, length, thickness);
+      start = (width - length) / 2;
+      cairo_rectangle (cr, start, height - thickness, length, thickness);
       break;
     }
 
@@ -389,7 +394,7 @@ window_item_new (WnckWindow *window)
 
   gtk_label_set_ellipsize (GTK_LABEL (label), PANGO_ELLIPSIZE_END);
   gtk_label_set_max_width_chars (GTK_LABEL (label), 50);
-  gtk_label_set_xalign (GTK_LABEL (label), 0.0);
+  gtk_label_set_xalign (GTK_LABEL (label), 0.0F);
 
   gtk_container_add (GTK_CONTAINER (box), gtk_image_new_from_pixbuf (wnck_window_get_mini_icon (window)));
   gtk_container_add (GTK_CONTAINER (box), label);
@@ -557,8 +562,10 @@ launch_new_instance (MockaDockButton *self)
     g_signal_emit (self, signals[SIGNAL_LAUNCH], 0, NULL, NULL);
 }
 
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) the signal fixes this signature */
 static void
 on_middle_click_released (GtkGestureMultiPress *gesture, gint n_press, gdouble x, gdouble y, gpointer user_data)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   GtkWidget *widget = GTK_WIDGET (user_data);
 
@@ -577,6 +584,7 @@ mocka_dock_button_clicked (GtkButton *button)
 {
   MockaDockButton *self = MOCKA_DOCK_BUTTON (button);
   GPtrArray *windows = mocka_dock_app_get_windows (self->app);
+  /* NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) GdkModifierType has no value for "no modifiers" */
   GdkModifierType state = 0;
   GdkModifierType mods;
 
@@ -680,13 +688,16 @@ static const GtkTargetEntry drag_targets[] = {
 };
 
 /* The dragged data is the app's desktop entry ID. */
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) the signal fixes this signature */
 static void
 on_drag_data_get (GtkWidget *widget, GdkDragContext *context, GtkSelectionData *data, guint info, guint time,
                   gpointer user_data)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   MockaAppEntry *entry = mocka_dock_app_get_entry (MOCKA_DOCK_BUTTON (widget)->app);
 
-  gtk_selection_data_set (data, gtk_selection_data_get_target (data), 8, (const guchar *)entry->id, strlen (entry->id));
+  gtk_selection_data_set (data, gtk_selection_data_get_target (data), 8, (const guchar *)entry->id,
+                          (gint)strlen (entry->id));
 }
 
 GtkWidget *

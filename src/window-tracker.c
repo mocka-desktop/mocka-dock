@@ -388,8 +388,10 @@ on_class_changed (WnckWindow *window, gpointer user_data)
   update_window (MOCKA_WINDOW_TRACKER (user_data), window);
 }
 
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) the signal fixes this signature */
 static void
 on_state_changed (WnckWindow *window, WnckWindowState changed_mask, WnckWindowState new_state, gpointer user_data)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   if (changed_mask & WNCK_WINDOW_STATE_SKIP_TASKLIST)
     update_window (MOCKA_WINDOW_TRACKER (user_data), window);
@@ -526,6 +528,7 @@ mocka_window_tracker_class_init (MockaWindowTrackerClass *klass)
 
   /* Setting show-all-workspaces (SPEC section 16). */
   properties[PROP_SHOW_ALL_WORKSPACES] = g_param_spec_boolean (
+      /* NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) combined GParamFlags are not one named value */
       "show-all-workspaces", NULL, NULL, FALSE, G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (object_class, N_PROPS, properties);
@@ -584,8 +587,10 @@ on_launch_process_settled (gpointer data)
   return G_SOURCE_REMOVE;
 }
 
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) GChildWatchFunc fixes this signature */
 static void
 on_launch_process_exited (GPid pid, gint status, gpointer data)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   LaunchProcess *process = data;
 
@@ -663,8 +668,10 @@ change_to_home (gpointer home)
  * own, so an action starts like the app itself. NULL when the action has no
  * command, which is allowed for apps started through D-Bus.
  */
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) a desktop entry file and one of its actions */
 static GDesktopAppInfo *
 app_info_for_action (const gchar *path, const gchar *action)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   g_autoptr (GKeyFile) keyfile = g_key_file_new ();
   g_autofree gchar *group = g_strconcat ("Desktop Action ", action, NULL);
@@ -740,6 +747,7 @@ mocka_window_tracker_launch (MockaWindowTracker *self, MockaAppEntry *entry, con
   path = g_desktop_app_info_get_string (info, G_KEY_FILE_DESKTOP_KEY_PATH);
 
   return g_desktop_app_info_launch_uris_as_manager (
+      /* NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) combined GSpawnFlags are not one named value */
       info, uri_list, G_APP_LAUNCH_CONTEXT (context), G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
       path == NULL ? change_to_home : NULL, (gpointer)g_get_home_dir (), NULL, NULL, error);
 }

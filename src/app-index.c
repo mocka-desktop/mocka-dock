@@ -151,8 +151,10 @@ mocka_resolve_path (const gchar *path)
  * already seen in a directory of higher precedence is skipped, including
  * when that entry was Hidden.
  */
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) a directory and the ID prefix of the entries found in it */
 static void
 add_dir (MockaAppIndex *self, GHashTable *seen, const gchar *dir, const gchar *prefix)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   g_autoptr (GDir) handle = g_dir_open (dir, 0, NULL);
   const gchar *name;
@@ -210,8 +212,10 @@ table_add (GHashTable *table, gchar *key, MockaAppEntry *entry)
  * Tie-break when several entries match in the same step: an Exec without
  * arguments besides field codes first, then by ID.
  */
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) GCompareFunc fixes this signature */
 static gint
 compare_entries (gconstpointer a, gconstpointer b)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   const MockaAppEntry *ea = *(MockaAppEntry *const *)a;
   const MockaAppEntry *eb = *(MockaAppEntry *const *)b;
@@ -237,7 +241,8 @@ build_tables (MockaAppIndex *self)
       if (entry->startup_wm_class != NULL)
         table_add (self->tables[MOCKA_APP_KEY_STARTUP_WM_CLASS], g_strdup (entry->startup_wm_class), entry);
 
-      table_add (self->tables[MOCKA_APP_KEY_ID], g_utf8_casefold (entry->id, id_len - strlen (".desktop")), entry);
+      table_add (self->tables[MOCKA_APP_KEY_ID], g_utf8_casefold (entry->id, (gssize)(id_len - strlen (".desktop"))),
+                 entry);
 
       if (entry->program != NULL)
         table_add (self->tables[MOCKA_APP_KEY_PROGRAM], g_utf8_casefold (entry->program, -1), entry);

@@ -24,8 +24,10 @@ typedef struct
   guint last_added;
 } Fixture;
 
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) the signal fixes this signature */
 static void
 on_items_changed (GListModel *list, guint position, guint removed, guint added, gpointer user_data)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   Fixture *fixture = user_data;
 

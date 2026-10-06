@@ -51,8 +51,10 @@ casefold_equal (const gchar *a, const gchar *b)
  * runs the app's program, or when its name is the app's desktop entry ID
  * without ".desktop". Case is ignored.
  */
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) name and command, as a recent file records them */
 gboolean
 mocka_recent_app_matches (MockaAppEntry *entry, const gchar *app_name, const gchar *app_exec)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   g_return_val_if_fail (entry != NULL, FALSE);
 

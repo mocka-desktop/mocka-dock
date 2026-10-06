@@ -101,9 +101,11 @@ match_names (MockaAppIndex *index, const gchar *instance, const gchar *res_class
  * class fallback (step 7). step, when not NULL, is set to the step that
  * decided.
  */
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) window properties in the order of SPEC section 6 */
 MockaAppEntry *
 mocka_matcher_match (MockaAppIndex *index, const gchar *instance, const gchar *res_class, const gchar *executable,
                      const gchar *startup_id, GHashTable *launches, MockaMatchStep *step)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   g_autofree gchar *resolved = NULL;
   MockaMatchStep matched = MOCKA_MATCH_NONE;

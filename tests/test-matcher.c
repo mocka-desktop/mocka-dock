@@ -136,8 +136,10 @@ test_sample (gconstpointer data)
 
 /* Helpers for made-up desktop entry directories. */
 
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) directory, file and contents, like the GLib file calls */
 static void
 write_entry (const gchar *dir, const gchar *relative_path, const gchar *keys)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   g_autofree gchar *path = g_build_filename (dir, relative_path, NULL);
   g_autofree gchar *parent = g_path_get_dirname (path);
@@ -163,7 +165,7 @@ remove_tree (const gchar *path)
       if (g_file_test (child, G_FILE_TEST_IS_DIR))
         remove_tree (child);
       else
-        g_remove (child);
+        (void)g_remove (child);
     }
 
   g_rmdir (path);
@@ -186,9 +188,11 @@ index_for (const gchar *dir)
   return mocka_app_index_new (dirs);
 }
 
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) WM_CLASS order, then the expected entry */
 static void
 assert_match (MockaAppIndex *index, const gchar *instance, const gchar *res_class, const gchar *expect,
               MockaMatchStep expect_step)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   g_autoptr (MockaAppEntry) entry = NULL;
   MockaMatchStep step;
@@ -296,8 +300,10 @@ test_startup_id (void)
   g_assert_cmpint (step, ==, MOCKA_MATCH_NONE);
 }
 
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) the window, then the expected entry */
 static void
 assert_executable_match (MockaAppIndex *index, const gchar *executable, const gchar *expect)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   g_autoptr (MockaAppEntry) entry = NULL;
   MockaMatchStep step;
@@ -380,8 +386,8 @@ test_executable_link (void)
   resolved = mocka_resolve_path (real);
   assert_executable_match (index, resolved, "linked.desktop");
 
-  g_remove (link);
-  g_remove (real);
+  (void)g_remove (link);
+  (void)g_remove (real);
   remove_tree (dir);
 }
 

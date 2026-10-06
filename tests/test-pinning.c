@@ -111,7 +111,7 @@ remove_tree (const gchar *path)
       if (g_file_test (child, G_FILE_TEST_IS_DIR))
         remove_tree (child);
       else
-        g_remove (child);
+        (void)g_remove (child);
     }
 
   g_rmdir (path);
@@ -127,8 +127,10 @@ dirs_teardown (Dirs *dirs, gconstpointer data)
   g_free (dirs->elsewhere);
 }
 
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) directory, file and contents, like the GLib file calls */
 static gchar *
 write_file (const gchar *dir, const gchar *name, const gchar *contents)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   gchar *path = g_build_filename (dir, name, NULL);
   g_autofree gchar *parent = g_path_get_dirname (path);

@@ -27,8 +27,10 @@
  * to dir with "/" replaced by "-" (Desktop Entry specification). NULL when
  * it lies elsewhere.
  */
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) a file and the directory it may be in */
 static gchar *
 id_in_dir (const gchar *path, const gchar *dir)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   g_autofree gchar *resolved_dir = mocka_resolve_path (dir);
   gsize length = strlen (resolved_dir);
@@ -126,7 +128,7 @@ mocka_desktop_import (const gchar *path, const gchar *const *app_dirs, const gch
           continue;
         }
 
-      if (!g_file_set_contents (target, contents, length, error))
+      if (!g_file_set_contents (target, contents, (gssize)length, error))
         return NULL;
       return g_steal_pointer (&name);
     }

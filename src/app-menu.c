@@ -148,7 +148,7 @@ recent_item_new (GtkRecentInfo *info)
 
   gtk_label_set_ellipsize (GTK_LABEL (label), PANGO_ELLIPSIZE_MIDDLE);
   gtk_label_set_max_width_chars (GTK_LABEL (label), 40);
-  gtk_label_set_xalign (GTK_LABEL (label), 0.0);
+  gtk_label_set_xalign (GTK_LABEL (label), 0.0F);
 
   if (icon != NULL)
     gtk_container_add (GTK_CONTAINER (box), gtk_image_new_from_gicon (icon, GTK_ICON_SIZE_MENU));
