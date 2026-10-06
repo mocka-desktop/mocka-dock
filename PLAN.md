@@ -19,7 +19,8 @@ order. Tick items as they are completed.
 | `src/dock-model.c` | Ordered app list (pinned and running), synced with `pinned-apps` |
 | `src/dock-button.c` | App button: icon, indicators, badge, launch pulse, input handling |
 | `src/app-menu.c` | App menu and window menu |
-| `src/thumbnails.c` | Composite capture, snapshot cache, thumbnail popup |
+| `src/thumbnails.c` | Thumbnail popup, snapshot cache |
+| `src/window-capture.c` | Compositor detection and window capture for thumbnails |
 | `src/keybindings.c` | Super + number shortcuts, grab ownership across docks through an X manager selection |
 | `src/trash.c` | Trash item |
 | `src/undo-popup.c` | Unpin popup with Undo |
@@ -92,7 +93,7 @@ therefore takes the panel down, and the panel restarts.
 ## M4: Thumbnails
 
 - [x] Thumbnail popup with hover timings from SPEC section 8
-- [ ] Composite capture with a compositor, icon and title fallback without one
+- [x] Composite capture with a compositor, icon and title fallback without one
 - [ ] Snapshots on focus loss and before the dock minimizes a window
 - [ ] Damage updates only while the popup is showing
 - [x] Thumbnail actions: switch, minimize focused, close

@@ -8,7 +8,8 @@
  * Thumbnail popup (SPEC section 8): one tile per window of the app under
  * the pointer, with the window's title and a close button. One popup serves
  * all the buttons of a dock, so moving from one button to the next switches
- * it at once. Tiles show the window's icon until window capture is added.
+ * it at once. Tiles show the window's contents while a compositor runs,
+ * and its icon otherwise.
  */
 
 #include "config.h"
@@ -19,6 +20,8 @@
 
 #define WNCK_I_KNOW_THIS_IS_UNSTABLE
 #include <libwnck/libwnck.h>
+
+#include "window-capture.h"
 
 /* Fixed delays, in milliseconds (SPEC section 8). */
 #define SHOW_DELAY 400
@@ -108,20 +111,33 @@ is_showing (MockaThumbnails *self)
   return gtk_widget_get_visible (self->popup);
 }
 
-/* The window's icon, centered in a preview of the given size. */
+/*
+ * The window's contents, scaled to the preview's size and centered in it.
+ * Without a compositor, or for a window that is not shown, its icon takes
+ * their place (SPEC section 8).
+ */
 static void
-set_icon_preview (GtkWidget *preview, WnckWindow *window)
+set_preview (GtkWidget *preview, WnckWindow *window)
 {
   gint scale = gtk_widget_get_scale_factor (preview);
-  GdkPixbuf *icon = wnck_window_get_icon (window);
+  GdkPixbuf *icon;
   g_autoptr (GdkPixbuf) scaled = NULL;
   cairo_surface_t *surface;
+  gint width, height;
 
-  if (icon == NULL)
-    return;
+  gtk_widget_get_size_request (preview, &width, &height);
+  surface = mocka_window_capture (window, width, height, scale);
 
-  scaled = gdk_pixbuf_scale_simple (icon, ICON_SIZE * scale, ICON_SIZE * scale, GDK_INTERP_BILINEAR);
-  surface = gdk_cairo_surface_create_from_pixbuf (scaled, scale, NULL);
+  if (surface == NULL)
+    {
+      icon = wnck_window_get_icon (window);
+      if (icon == NULL)
+        return;
+
+      scaled = gdk_pixbuf_scale_simple (icon, ICON_SIZE * scale, ICON_SIZE * scale, GDK_INTERP_BILINEAR);
+      surface = gdk_cairo_surface_create_from_pixbuf (scaled, scale, NULL);
+    }
+
   gtk_image_set_from_surface (GTK_IMAGE (preview), surface);
   cairo_surface_destroy (surface);
 }
@@ -141,7 +157,7 @@ on_window_name_changed_tooltip (WnckWindow *window, gpointer tile)
 static void
 on_window_icon_changed (WnckWindow *window, gpointer preview)
 {
-  set_icon_preview (GTK_WIDGET (preview), window);
+  set_preview (GTK_WIDGET (preview), window);
 }
 
 /*
@@ -202,7 +218,7 @@ tile_new (MockaThumbnails *self, WnckWindow *window, gint width, gint height)
   GtkWidget *close = gtk_button_new_from_icon_name ("window-close-symbolic", GTK_ICON_SIZE_MENU);
 
   gtk_widget_set_size_request (preview, width, height);
-  set_icon_preview (preview, window);
+  set_preview (preview, window);
 
   /* The title takes the preview's width and is shortened to fit it. */
   gtk_label_set_ellipsize (GTK_LABEL (label), PANGO_ELLIPSIZE_END);
