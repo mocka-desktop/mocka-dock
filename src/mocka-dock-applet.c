@@ -24,6 +24,7 @@
 #include "pinned-list.h"
 #include "thumbnails.h"
 #include "undo-popup.h"
+#include "window-capture.h"
 #include "window-tracker.h"
 
 #define MOCKA_DOCK_FACTORY_ID "MockaDockAppletFactory"
@@ -309,6 +310,10 @@ static void
 on_active_window_changed (WnckScreen *screen, WnckWindow *previous, gpointer user_data)
 {
   close_undo_popup (MOCKA_DOCK_APPLET (user_data));
+
+  /* A window that loses focus is kept as it looked (SPEC section 8). */
+  if (previous != NULL)
+    mocka_window_take_snapshot (previous);
 }
 
 /* Drag and drop onto the dock (SPEC section 10). */

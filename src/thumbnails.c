@@ -28,8 +28,8 @@
 #define HIDE_DELAY 300
 
 /* Size of a window's preview, shrunk when many windows must fit. */
-#define PREVIEW_WIDTH 192
-#define PREVIEW_HEIGHT 120
+#define PREVIEW_WIDTH MOCKA_THUMBNAIL_WIDTH
+#define PREVIEW_HEIGHT MOCKA_THUMBNAIL_HEIGHT
 #define MIN_PREVIEW_WIDTH 64
 
 /* Room a tile takes besides its preview: padding, title and spacing. */
@@ -113,22 +113,33 @@ is_showing (MockaThumbnails *self)
 
 /*
  * The window's contents, scaled to the preview's size and centered in it.
- * Without a compositor, or for a window that is not shown, its icon takes
+ * A window that cannot be read now, such as a minimized one, shows its last
+ * snapshot. Without a compositor, or without any snapshot, its icon takes
  * their place (SPEC section 8).
  */
 static void
 set_preview (GtkWidget *preview, WnckWindow *window)
 {
   gint scale = gtk_widget_get_scale_factor (preview);
+  cairo_surface_t *snapshot = NULL;
+  cairo_surface_t *surface;
   GdkPixbuf *icon;
   g_autoptr (GdkPixbuf) scaled = NULL;
-  cairo_surface_t *surface;
   gint width, height;
 
-  gtk_widget_get_size_request (preview, &width, &height);
-  surface = mocka_window_capture (window, width, height, scale);
+  if (mocka_compositor_running (gtk_widget_get_display (preview)))
+    {
+      snapshot = mocka_window_take_snapshot (window);
+      if (snapshot == NULL)
+        snapshot = mocka_window_get_snapshot (window);
+    }
 
-  if (surface == NULL)
+  if (snapshot != NULL)
+    {
+      gtk_widget_get_size_request (preview, &width, &height);
+      surface = mocka_surface_fit (snapshot, width, height);
+    }
+  else
     {
       icon = wnck_window_get_icon (window);
       if (icon == NULL)

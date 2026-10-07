@@ -22,6 +22,7 @@
 #include <libwnck/libwnck.h>
 
 #include "app-menu.h"
+#include "window-capture.h"
 
 struct _MockaDockButton
 {
@@ -378,8 +379,12 @@ most_recent_window (GPtrArray *windows)
 void
 mocka_dock_toggle_window (WnckWindow *window, guint32 time)
 {
+  /* Minimized windows have no contents to read: keep how it looked (SPEC section 8). */
   if (wnck_window_is_active (window))
-    wnck_window_minimize (window);
+    {
+      mocka_window_take_snapshot (window);
+      wnck_window_minimize (window);
+    }
   else
     activate_window (window, time);
 }

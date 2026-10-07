@@ -9,6 +9,9 @@
  * every window is redirected to off-screen storage, so its contents can be
  * read through XRender even when other windows cover it. Without one, a
  * covered window would show what covers it, so nothing is captured then.
+ *
+ * The last capture of each window is kept as its snapshot, so a minimized
+ * window, which has no contents to read, still shows how it looked.
  */
 
 #include "config.h"
@@ -97,4 +100,80 @@ mocka_window_capture (WnckWindow *window, gint width, gint height, gint scale)
 
   cairo_surface_set_device_scale (image, scale, scale);
   return image;
+}
+/* Snapshots live on the window, and go with it. */
+#define SNAPSHOT_KEY "mocka-dock-snapshot"
+
+/* The scale factor of the primary monitor, which snapshots are taken at. */
+static gint
+snapshot_scale (GdkDisplay *display)
+{
+  GdkMonitor *monitor = gdk_display_get_primary_monitor (display);
+
+  if (monitor == NULL)
+    monitor = gdk_display_get_monitor (display, 0);
+  return monitor != NULL ? gdk_monitor_get_scale_factor (monitor) : 1;
+}
+
+/*
+ * Captures the window at the largest thumbnail size and keeps it as its
+ * snapshot (SPEC section 8). Returns the snapshot, owned by the window, or
+ * NULL when nothing could be captured; an earlier snapshot is kept then.
+ */
+cairo_surface_t *
+mocka_window_take_snapshot (WnckWindow *window)
+{
+  cairo_surface_t *snapshot;
+
+  g_return_val_if_fail (WNCK_IS_WINDOW (window), NULL);
+
+  snapshot = mocka_window_capture (window, MOCKA_THUMBNAIL_WIDTH, MOCKA_THUMBNAIL_HEIGHT,
+                                   snapshot_scale (gdk_display_get_default ()));
+  if (snapshot == NULL)
+    return NULL;
+
+  g_object_set_data_full (G_OBJECT (window), SNAPSHOT_KEY, snapshot, (GDestroyNotify)cairo_surface_destroy);
+  return snapshot;
+}
+
+/* The window's last snapshot, owned by the window, or NULL. */
+cairo_surface_t *
+mocka_window_get_snapshot (WnckWindow *window)
+{
+  g_return_val_if_fail (WNCK_IS_WINDOW (window), NULL);
+
+  return g_object_get_data (G_OBJECT (window), SNAPSHOT_KEY);
+}
+
+/*
+ * A new reference to the surface, scaled down to fit width by height
+ * logical pixels when it is larger, keeping its proportions and its scale
+ * factor.
+ */
+cairo_surface_t *
+mocka_surface_fit (cairo_surface_t *surface, gint width, gint height)
+{
+  gdouble scale_x, scale_y, factor;
+  gint pixel_width = cairo_image_surface_get_width (surface);
+  gint pixel_height = cairo_image_surface_get_height (surface);
+  cairo_surface_t *fitted;
+  cairo_t *cr;
+
+  cairo_surface_get_device_scale (surface, &scale_x, &scale_y);
+  factor = MIN (width * scale_x / pixel_width, height * scale_y / pixel_height);
+  if (factor >= 1.0)
+    return cairo_surface_reference (surface);
+
+  fitted = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, MAX (1, (gint)(pixel_width * factor)),
+                                       MAX (1, (gint)(pixel_height * factor)));
+  cr = cairo_create (fitted);
+  cairo_scale (cr, factor, factor);
+  cairo_set_source_surface (cr, surface, 0, 0);
+  cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_GOOD);
+  cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
+  cairo_paint (cr);
+  cairo_destroy (cr);
+
+  cairo_surface_set_device_scale (fitted, scale_x, scale_y);
+  return fitted;
 }
