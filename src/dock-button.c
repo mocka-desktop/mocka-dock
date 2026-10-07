@@ -93,12 +93,21 @@ set_icon_window (MockaDockButton *self, WnckWindow *window)
     return;
 
   if (self->icon_window != NULL)
-    g_signal_handlers_disconnect_by_data (self->icon_window, self);
+    {
+      g_signal_handlers_disconnect_by_data (self->icon_window, self);
+      g_object_remove_weak_pointer (G_OBJECT (self->icon_window), (gpointer *)&self->icon_window);
+    }
 
   self->icon_window = window;
   if (window == NULL)
     return;
 
+  /*
+   * The window belongs to wnck, which destroys its own when the panel shuts
+   * down, before the buttons are disposed. Without this the pointer is left
+   * dangling and disposing the button disconnects from freed memory.
+   */
+  g_object_add_weak_pointer (G_OBJECT (window), (gpointer *)&self->icon_window);
   g_signal_connect (window, "icon-changed", G_CALLBACK (on_icon_changed), self);
   update_fallback_icon (self);
 }
