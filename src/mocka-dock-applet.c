@@ -887,7 +887,7 @@ update_pinned (MockaDockApplet *self)
 static void
 on_about (GtkAction *action, gpointer user_data)
 {
-  const gchar *authors[] = { "The Mocka Desktop Project", NULL };
+  const gchar *authors[] = { "Eric Turgeon", NULL };
 
   gtk_show_about_dialog (NULL, "program-name", _ ("Mocka Dock"), "version", PACKAGE_VERSION, "comments",
                          _ ("Pinned and running applications"), "logo-icon-name", "user-desktop", "copyright",

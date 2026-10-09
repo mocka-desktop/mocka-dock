@@ -97,8 +97,8 @@ therefore takes the panel down, and the panel restarts.
 - [x] Snapshots on focus loss and before the dock minimizes a window
 - [x] Damage updates only while the popup is showing
 - [x] Thumbnail actions: switch, minimize focused, close
-- [ ] Manual test with the compositor on and off
-- [ ] Collect feedback on the multiple-window click behavior
+- [x] Manual test with the compositor on and off
+- [ ] Collect feedback from GhostBSD alpha testers on the multiple-window click behavior: a click shows the thumbnails or hides them when hover already showed them (SPEC section 7). The alternative considered is that a click keeps them open, as Windows 11 does
 
 ## M5: Remaining core features
 
