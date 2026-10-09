@@ -95,7 +95,7 @@ therefore takes the panel down, and the panel restarts.
 - [x] Thumbnail popup with hover timings from SPEC section 8
 - [x] Composite capture with a compositor, icon and title fallback without one
 - [x] Snapshots on focus loss and before the dock minimizes a window
-- [ ] Damage updates only while the popup is showing
+- [x] Damage updates only while the popup is showing
 - [x] Thumbnail actions: switch, minimize focused, close
 - [ ] Manual test with the compositor on and off
 - [ ] Collect feedback on the multiple-window click behavior

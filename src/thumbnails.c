@@ -10,12 +10,19 @@
  * all the buttons of a dock, so moving from one button to the next switches
  * it at once. Tiles show the window's contents while a compositor runs,
  * and its icon otherwise.
+ *
+ * While the popup shows, the X Damage extension reports changes to the
+ * windows it shows, and their tiles are captured again, so the thumbnails
+ * stay live. Nothing is watched while the popup is hidden.
  */
 
 #include "config.h"
 
 #include "thumbnails.h"
 
+#include <X11/Xlib.h>
+#include <X11/extensions/Xdamage.h>
+#include <gdk/gdkx.h>
 #include <glib/gi18n-lib.h>
 
 #define WNCK_I_KNOW_THIS_IS_UNSTABLE
@@ -39,6 +46,18 @@
 /* Size of the window icon shown in place of its contents. */
 #define ICON_SIZE 48
 
+/* Shortest time between two captures of a changing window, in milliseconds. */
+#define UPDATE_INTERVAL 250
+
+/* A window of the popup whose changes are reported, and its tile's preview. */
+typedef struct
+{
+  Damage damage;
+  WnckWindow *window;
+  GtkWidget *preview;
+  gboolean changed;
+} Watch;
+
 struct _MockaThumbnails
 {
   GObject parent_instance;
@@ -53,9 +72,135 @@ struct _MockaThumbnails
   MockaDockApp *app;       /* the app whose windows are shown */
   guint show_id;
   guint hide_id;
+
+  /* Live updates while the popup shows. */
+  gboolean has_damage;
+  int damage_event_base;
+  GArray *watches; /* of Watch */
+  gboolean filtering;
+  guint update_id;
 };
 
 G_DEFINE_TYPE (MockaThumbnails, mocka_thumbnails, G_TYPE_OBJECT)
+
+static Display *
+get_xdisplay (MockaThumbnails *self)
+{
+  return gdk_x11_display_get_xdisplay (gtk_widget_get_display (self->popup));
+}
+
+static GdkFilterReturn on_x_event (GdkXEvent *gdk_xevent, GdkEvent *event, gpointer user_data);
+static void set_preview (GtkWidget *preview, WnckWindow *window);
+
+/* Stops all reports: the popup hides, or its tiles are made again. */
+static void
+clear_watches (MockaThumbnails *self)
+{
+  GdkDisplay *display = gtk_widget_get_display (self->popup);
+  guint i;
+
+  g_clear_handle_id (&self->update_id, g_source_remove);
+
+  /* A window that closed took its report with it, so errors are expected. */
+  gdk_x11_display_error_trap_push (display);
+  for (i = 0; i < self->watches->len; i++)
+    XDamageDestroy (get_xdisplay (self), g_array_index (self->watches, Watch, i).damage);
+  gdk_x11_display_error_trap_pop_ignored (display);
+  g_array_set_size (self->watches, 0);
+
+  if (self->filtering)
+    {
+      gdk_window_remove_filter (NULL, on_x_event, self);
+      self->filtering = FALSE;
+    }
+}
+
+/*
+ * Asks for reports of changes to a tile's window. Only useful while a
+ * compositor runs, since tiles show icons otherwise.
+ */
+static void
+watch_window (MockaThumbnails *self, WnckWindow *window, GtkWidget *preview)
+{
+  GdkDisplay *display = gtk_widget_get_display (self->popup);
+  Watch watch = { 0 };
+
+  if (!self->has_damage || !mocka_compositor_running (display))
+    return;
+
+  gdk_x11_display_error_trap_push (display);
+  watch.damage = XDamageCreate (get_xdisplay (self), wnck_window_get_xid (window), XDamageReportNonEmpty);
+  if (gdk_x11_display_error_trap_pop (display) != 0)
+    return;
+
+  watch.window = window;
+  watch.preview = preview;
+  g_array_append_val (self->watches, watch);
+
+  if (!self->filtering)
+    {
+      gdk_window_add_filter (NULL, on_x_event, self);
+      self->filtering = TRUE;
+    }
+}
+
+/* Captures the changed windows again, and asks for their next change. */
+static gboolean
+on_update_timeout (gpointer user_data)
+{
+  MockaThumbnails *self = MOCKA_THUMBNAILS (user_data);
+  GdkDisplay *display = gtk_widget_get_display (self->popup);
+  guint i;
+
+  self->update_id = 0;
+
+  for (i = 0; i < self->watches->len; i++)
+    {
+      Watch *watch = &g_array_index (self->watches, Watch, i);
+
+      if (!watch->changed)
+        continue;
+
+      watch->changed = FALSE;
+      gdk_x11_display_error_trap_push (display);
+      XDamageSubtract (get_xdisplay (self), watch->damage, None, None);
+      gdk_x11_display_error_trap_pop_ignored (display);
+      set_preview (watch->preview, watch->window);
+    }
+
+  return G_SOURCE_REMOVE;
+}
+
+/*
+ * A window changed. Reports stop until its damage is subtracted, so a
+ * window drawing all the time is captured once per interval at most.
+ */
+static GdkFilterReturn
+on_x_event (GdkXEvent *gdk_xevent, GdkEvent *event, gpointer user_data)
+{
+  MockaThumbnails *self = MOCKA_THUMBNAILS (user_data);
+  XEvent *xevent = gdk_xevent;
+  XDamageNotifyEvent *notify;
+  guint i;
+
+  if (xevent->type != self->damage_event_base + XDamageNotify)
+    return GDK_FILTER_CONTINUE;
+
+  notify = (XDamageNotifyEvent *)xevent;
+  for (i = 0; i < self->watches->len; i++)
+    {
+      Watch *watch = &g_array_index (self->watches, Watch, i);
+
+      if (watch->damage == notify->damage)
+        {
+          watch->changed = TRUE;
+          if (self->update_id == 0)
+            self->update_id = g_timeout_add (UPDATE_INTERVAL, on_update_timeout, self);
+        }
+    }
+
+  return GDK_FILTER_CONTINUE;
+}
 
 static void
 set_button (MockaThumbnails *self, MockaDockButton *button)
@@ -100,6 +245,7 @@ mocka_thumbnails_hide (MockaThumbnails *self)
   g_return_if_fail (MOCKA_IS_THUMBNAILS (self));
 
   cancel_timers (self);
+  clear_watches (self);
   gtk_widget_hide (self->popup);
   set_app (self, NULL);
   set_button (self, NULL);
@@ -230,6 +376,7 @@ tile_new (MockaThumbnails *self, WnckWindow *window, gint width, gint height)
 
   gtk_widget_set_size_request (preview, width, height);
   set_preview (preview, window);
+  watch_window (self, window, preview);
 
   /* The title takes the preview's width and is shortened to fit it. */
   gtk_label_set_ellipsize (GTK_LABEL (label), PANGO_ELLIPSIZE_END);
@@ -372,6 +519,7 @@ rebuild (MockaThumbnails *self)
       return;
     }
 
+  clear_watches (self);
   for (l = children; l != NULL; l = l->next)
     gtk_widget_destroy (l->data);
 
@@ -557,6 +705,8 @@ mocka_thumbnails_dispose (GObject *object)
   MockaThumbnails *self = MOCKA_THUMBNAILS (object);
 
   cancel_timers (self);
+  if (self->popup != NULL)
+    clear_watches (self);
   set_app (self, NULL);
   set_button (self, NULL);
   g_clear_pointer (&self->popup, gtk_widget_destroy);
@@ -566,9 +716,18 @@ mocka_thumbnails_dispose (GObject *object)
 }
 
 static void
+mocka_thumbnails_finalize (GObject *object)
+{
+  g_array_unref (MOCKA_THUMBNAILS (object)->watches);
+
+  G_OBJECT_CLASS (mocka_thumbnails_parent_class)->finalize (object);
+}
+
+static void
 mocka_thumbnails_class_init (MockaThumbnailsClass *klass)
 {
   G_OBJECT_CLASS (klass)->dispose = mocka_thumbnails_dispose;
+  G_OBJECT_CLASS (klass)->finalize = mocka_thumbnails_finalize;
 }
 
 static void
@@ -577,9 +736,11 @@ mocka_thumbnails_init (MockaThumbnails *self)
   GdkScreen *screen = gdk_screen_get_default ();
   GdkVisual *visual = gdk_screen_get_rgba_visual (screen);
   GtkStyleContext *context;
+  int damage_error_base;
 
   self->side = GTK_POS_TOP;
   self->colors = gtk_css_provider_new ();
+  self->watches = g_array_new (FALSE, FALSE, sizeof (Watch));
 
   self->popup = gtk_window_new (GTK_WINDOW_POPUP);
   gtk_window_set_type_hint (GTK_WINDOW (self->popup), GDK_WINDOW_TYPE_HINT_TOOLTIP);
@@ -597,6 +758,8 @@ mocka_thumbnails_init (MockaThumbnails *self)
 
   self->box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 4);
   gtk_container_add (GTK_CONTAINER (self->popup), self->box);
+
+  self->has_damage = XDamageQueryExtension (get_xdisplay (self), &self->damage_event_base, &damage_error_base);
 }
 
 /* A popup for the buttons of a dock, which gives it the panel's colors. */
