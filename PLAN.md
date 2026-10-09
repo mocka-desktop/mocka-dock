@@ -6,7 +6,7 @@ order. Tick items as they are completed.
 ## Dependencies
 
 `gtk+-3.0`, `libmatepanelapplet-4.0`, `libwnck-3.0`, `gio-unix-2.0`, `x11`,
-`xcomposite`, `xdamage`, `cairo-xlib`.
+`xcomposite`, `xdamage`, `xrender`, `cairo-xlib-xrender`.
 
 ## Module layout
 
