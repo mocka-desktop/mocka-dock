@@ -6,7 +6,7 @@ order. Tick items as they are completed.
 ## Dependencies
 
 `gtk+-3.0`, `libmatepanelapplet-4.0`, `libwnck-3.0`, `gio-unix-2.0`, `x11`,
-`xcomposite`, `xdamage`, `cairo-xlib`.
+`xcomposite`, `xdamage`, `xrender`, `cairo-xlib-xrender`.
 
 ## Module layout
 
@@ -19,7 +19,8 @@ order. Tick items as they are completed.
 | `src/dock-model.c` | Ordered app list (pinned and running), synced with `pinned-apps` |
 | `src/dock-button.c` | App button: icon, indicators, badge, launch pulse, input handling |
 | `src/app-menu.c` | App menu and window menu |
-| `src/thumbnails.c` | Composite capture, snapshot cache, thumbnail popup |
+| `src/thumbnails.c` | Thumbnail popup, snapshot cache |
+| `src/window-capture.c` | Compositor detection and window capture for thumbnails |
 | `src/keybindings.c` | Super + number shortcuts, grab ownership across docks through an X manager selection |
 | `src/trash.c` | Trash item |
 | `src/undo-popup.c` | Unpin popup with Undo |
@@ -87,17 +88,17 @@ therefore takes the panel down, and the panel restarts.
 - [x] Add `x11/mocka-dock` to ghostbsd-ports from the stashed draft, pointing at the alpha. Update its plist for the in-process module: `lib/mate-panel/libmocka-dock-applet.so` in place of `libexec/mocka-dock-applet` and the D-Bus service file
 - [x] GhostBSD override for `pinned-apps` adding `software-station.desktop`, as `schemas/92_org.mocka_desktop.Dock.gschema.override` in ghostbsd-mate-settings
 - [x] User guide on the project wiki, first version for testers: adding the dock to a panel, clicks and menus, pinning, and settings through `gsettings`
-- [ ] Alpha release 0.0.1 for GhostBSD testers. Versions are numbers only (no alpha or rc suffixes); later alphas bump the last number
+- [x] Alpha release 0.0.1 for GhostBSD testers. Versions are numbers only (no alpha or rc suffixes); later alphas bump the last number
 
 ## M4: Thumbnails
 
-- [ ] Thumbnail popup with hover timings from SPEC section 8
-- [ ] Composite capture with a compositor, icon and title fallback without one
-- [ ] Snapshots on focus loss and before the dock minimizes a window
-- [ ] Damage updates only while the popup is showing
-- [ ] Thumbnail actions: switch, minimize focused, close
-- [ ] Manual test with the compositor on and off
-- [ ] Collect feedback on the multiple-window click behavior
+- [x] Thumbnail popup with hover timings from SPEC section 8
+- [x] Composite capture with a compositor, icon and title fallback without one
+- [x] Snapshots on focus loss and before the dock minimizes a window
+- [x] Damage updates only while the popup is showing
+- [x] Thumbnail actions: switch, minimize focused, close
+- [x] Manual test with the compositor on and off
+- [ ] Collect feedback from GhostBSD alpha testers on the multiple-window click behavior: a click shows the thumbnails or hides them when hover already showed them (SPEC section 7). The alternative considered is that a click keeps them open, as Windows 11 does
 
 ## M5: Remaining core features
 

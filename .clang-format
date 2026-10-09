@@ -1,0 +1,3 @@
+# GNU style, at the width CLion uses by default.
+BasedOnStyle: GNU
+ColumnLimit: 120

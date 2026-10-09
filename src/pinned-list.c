@@ -19,11 +19,9 @@
  * already pinned it moves there, so dragging a pinned app reorders it.
  */
 gchar **
-mocka_pinned_list_insert (const gchar * const *ids,
-                          const gchar         *id,
-                          guint                gap)
+mocka_pinned_list_insert (const gchar *const *ids, const gchar *id, guint gap)
 {
-  g_autoptr(GStrvBuilder) builder = g_strv_builder_new ();
+  g_autoptr (GStrvBuilder) builder = g_strv_builder_new ();
   gboolean added = FALSE;
   guint i;
 
@@ -52,11 +50,9 @@ mocka_pinned_list_insert (const gchar * const *ids,
  * to the length of the list when it was not pinned.
  */
 gchar **
-mocka_pinned_list_remove (const gchar * const *ids,
-                          const gchar         *id,
-                          guint               *position)
+mocka_pinned_list_remove (const gchar *const *ids, const gchar *id, guint *position)
 {
-  g_autoptr(GStrvBuilder) builder = g_strv_builder_new ();
+  g_autoptr (GStrvBuilder) builder = g_strv_builder_new ();
   guint i;
   guint found = G_MAXUINT;
 

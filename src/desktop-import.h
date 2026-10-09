@@ -10,9 +10,6 @@
 
 G_BEGIN_DECLS
 
-gchar *mocka_desktop_import (const gchar         *path,
-                             const gchar * const *app_dirs,
-                             const gchar         *user_dir,
-                             GError             **error);
+gchar *mocka_desktop_import (const gchar *path, const gchar *const *app_dirs, const gchar *user_dir, GError **error);
 
 G_END_DECLS

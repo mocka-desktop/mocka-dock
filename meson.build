@@ -1,5 +1,5 @@
 project('mocka-dock', 'c',
-  version: '0.0.1',
+  version: '0.0.2',
   license: 'BSD-3-Clause',
   meson_version: '>= 0.60.0',
   default_options: [
@@ -35,7 +35,8 @@ gio_dep = dependency('gio-unix-2.0')
 x11_dep = dependency('x11')
 xcomposite_dep = dependency('xcomposite')
 xdamage_dep = dependency('xdamage')
-cairo_xlib_dep = dependency('cairo-xlib')
+cairo_xlib_dep = dependency('cairo-xlib-xrender')
+xrender_dep = dependency('xrender')
 math_dep = cc.find_library('m', required: false)
 
 conf = configuration_data()
@@ -51,5 +52,12 @@ subdir('data')
 subdir('src')
 subdir('tests')
 subdir('po')
+
+# Lets testers who installed the package record the data a bug report needs.
+install_data('tools/collect-test-data.sh',
+  rename: 'mocka-dock-collect-test-data',
+  install_dir: get_option('bindir'),
+  install_mode: 'rwxr-xr-x',
+)
 
 gnome.post_install(glib_compile_schemas: true)

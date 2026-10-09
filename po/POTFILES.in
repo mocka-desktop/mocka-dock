@@ -2,4 +2,5 @@ data/org.mocka_desktop.Dock.gschema.xml
 data/org.mocka_desktop.DockApplet.mate-panel-applet.desktop.in
 src/app-menu.c
 src/mocka-dock-applet.c
+src/thumbnails.c
 src/undo-popup.c

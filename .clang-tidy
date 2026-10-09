@@ -1,0 +1,39 @@
+# Correctness checks. Style is clang-format's job, so readability-* is not
+# here; these are the families that find defects.
+#
+# The disabled ones are all GLib macros expanding on our lines. Each is named
+# with the macro responsible, and none of them can be satisfied by changing
+# this code, only by not using GObject. Anything else that fires gets fixed,
+# or carries a NOLINT saying why on the line itself.
+Checks: >
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  bugprone-*,
+  cert-*,
+  performance-*,
+  portability-*,
+  -bugprone-casting-through-void,
+  -bugprone-reserved-identifier,
+  -cert-dcl37-c,
+  -cert-dcl51-cpp,
+  -bugprone-assignment-in-if-condition,
+  -bugprone-multi-level-implicit-pointer-conversion,
+  -performance-no-int-to-ptr
+
+# What each disabled check fires on, and where the code really lives:
+#
+# casting-through-void            _G_TYPE_CIC in gobject/gtype.h, reached
+#                                 through G_OBJECT, G_APP_INFO,
+#                                 G_DECLARE_FINAL_TYPE and g_array_index
+# reserved-identifier             G_DECLARE_FINAL_TYPE declares struct _Name,
+#                                 and names its parameters _q and _l
+# cert-dcl37-c, cert-dcl51-cpp    aliases of reserved-identifier
+# assignment-in-if-condition      G_IS_THEMED_ICON, G_IS_FILE_ICON and the
+#                                 other G_IS_* type checks
+# multi-level-implicit-pointer    g_once_init_enter takes a volatile void *
+# no-int-to-ptr                   GINT_TO_POINTER
+
+# Only our own headers. A pattern matching "include" anywhere would take in
+# /usr/local/include and report every GLib header as well.
+HeaderFilterRegex: 'src/[^/]+\.h$'
+FormatStyle: file

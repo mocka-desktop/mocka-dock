@@ -10,8 +10,6 @@
 
 G_BEGIN_DECLS
 
-gchar *mocka_startup_message_get_value (const gchar *message,
-                                        const gchar *type,
-                                        const gchar *key);
+gchar *mocka_startup_message_get_value (const gchar *message, const gchar *type, const gchar *key);
 
 G_END_DECLS

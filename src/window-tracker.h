@@ -17,21 +17,12 @@
 G_BEGIN_DECLS
 
 #define MOCKA_TYPE_WINDOW_TRACKER (mocka_window_tracker_get_type ())
-G_DECLARE_FINAL_TYPE (MockaWindowTracker, mocka_window_tracker, MOCKA,
-                      WINDOW_TRACKER, GObject)
+G_DECLARE_FINAL_TYPE (MockaWindowTracker, mocka_window_tracker, MOCKA, WINDOW_TRACKER, GObject)
 
-MockaWindowTracker *mocka_window_tracker_new    (WnckHandle          *wnck,
-                                                 MockaAppIndex       *index,
-                                                 MockaDockModel      *model);
+MockaWindowTracker *mocka_window_tracker_new (WnckHandle *wnck, MockaAppIndex *index, MockaDockModel *model);
 
-gboolean            mocka_window_tracker_launch (MockaWindowTracker  *self,
-                                                 MockaAppEntry       *entry,
-                                                 const gchar         *action,
-                                                 const gchar * const *uris,
-                                                 GdkDisplay          *display,
-                                                 guint32              timestamp,
-                                                 GError             **error);
-gboolean            mocka_window_tracker_is_launching (MockaWindowTracker *self,
-                                                       const gchar        *desktop_id);
+gboolean mocka_window_tracker_launch (MockaWindowTracker *self, MockaAppEntry *entry, const gchar *action,
+                                      const gchar *const *uris, GdkDisplay *display, guint32 timestamp, GError **error);
+gboolean mocka_window_tracker_is_launching (MockaWindowTracker *self, const gchar *desktop_id);
 
 G_END_DECLS

@@ -12,8 +12,7 @@
 
 /* First entry in tie-break order that is visible, or hidden on the second pass. */
 static MockaAppEntry *
-pick (GPtrArray *candidates,
-      gboolean   hidden)
+pick (GPtrArray *candidates, gboolean hidden)
 {
   guint i;
 
@@ -33,28 +32,22 @@ pick (GPtrArray *candidates,
  * is the window's process executable with links resolved, or NULL.
  */
 static MockaAppEntry *
-match_names (MockaAppIndex  *index,
-             const gchar    *instance,
-             const gchar    *res_class,
-             const gchar    *executable,
-             gboolean        hidden,
-             MockaMatchStep *step)
+match_names (MockaAppIndex *index, const gchar *instance, const gchar *res_class, const gchar *executable,
+             gboolean hidden, MockaMatchStep *step)
 {
   g_autofree gchar *executable_name = NULL;
   const gchar *names[] = { instance, res_class };
   MockaAppEntry *entry;
   guint i;
 
-  entry = pick (mocka_app_index_find (index, MOCKA_APP_KEY_STARTUP_WM_CLASS,
-                                      instance), hidden);
+  entry = pick (mocka_app_index_find (index, MOCKA_APP_KEY_STARTUP_WM_CLASS, instance), hidden);
   if (entry != NULL)
     {
       *step = MOCKA_MATCH_STARTUP_WM_CLASS_INSTANCE;
       return entry;
     }
 
-  entry = pick (mocka_app_index_find (index, MOCKA_APP_KEY_STARTUP_WM_CLASS,
-                                      res_class), hidden);
+  entry = pick (mocka_app_index_find (index, MOCKA_APP_KEY_STARTUP_WM_CLASS, res_class), hidden);
   if (entry != NULL)
     {
       *step = MOCKA_MATCH_STARTUP_WM_CLASS_CLASS;
@@ -63,8 +56,7 @@ match_names (MockaAppIndex  *index,
 
   for (i = 0; i < G_N_ELEMENTS (names); i++)
     {
-      entry = pick (mocka_app_index_find (index, MOCKA_APP_KEY_ID, names[i]),
-                    hidden);
+      entry = pick (mocka_app_index_find (index, MOCKA_APP_KEY_ID, names[i]), hidden);
       if (entry != NULL)
         {
           *step = MOCKA_MATCH_ID;
@@ -74,8 +66,7 @@ match_names (MockaAppIndex  *index,
 
   for (i = 0; i < G_N_ELEMENTS (names); i++)
     {
-      entry = pick (mocka_app_index_find (index, MOCKA_APP_KEY_PROGRAM,
-                                          names[i]), hidden);
+      entry = pick (mocka_app_index_find (index, MOCKA_APP_KEY_PROGRAM, names[i]), hidden);
       if (entry != NULL)
         {
           *step = MOCKA_MATCH_PROGRAM;
@@ -87,13 +78,11 @@ match_names (MockaAppIndex  *index,
     return NULL;
 
   /* Entries giving a path must name the same file; bare names the same name. */
-  entry = pick (mocka_app_index_find (index, MOCKA_APP_KEY_EXECUTABLE,
-                                      executable), hidden);
+  entry = pick (mocka_app_index_find (index, MOCKA_APP_KEY_EXECUTABLE, executable), hidden);
   if (entry == NULL)
     {
       executable_name = g_path_get_basename (executable);
-      entry = pick (mocka_app_index_find (index, MOCKA_APP_KEY_EXECUTABLE_NAME,
-                                          executable_name), hidden);
+      entry = pick (mocka_app_index_find (index, MOCKA_APP_KEY_EXECUTABLE_NAME, executable_name), hidden);
     }
   if (entry != NULL)
     *step = MOCKA_MATCH_EXECUTABLE;
@@ -112,14 +101,11 @@ match_names (MockaAppIndex  *index,
  * class fallback (step 7). step, when not NULL, is set to the step that
  * decided.
  */
+/* NOLINTBEGIN(bugprone-easily-swappable-parameters) window properties in the order of SPEC section 6 */
 MockaAppEntry *
-mocka_matcher_match (MockaAppIndex  *index,
-                     const gchar    *instance,
-                     const gchar    *res_class,
-                     const gchar    *executable,
-                     const gchar    *startup_id,
-                     GHashTable     *launches,
-                     MockaMatchStep *step)
+mocka_matcher_match (MockaAppIndex *index, const gchar *instance, const gchar *res_class, const gchar *executable,
+                     const gchar *startup_id, GHashTable *launches, MockaMatchStep *step)
+/* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   g_autofree gchar *resolved = NULL;
   MockaMatchStep matched = MOCKA_MATCH_NONE;

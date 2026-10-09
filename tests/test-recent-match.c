@@ -14,8 +14,7 @@
 #include "recent-match.h"
 
 static MockaAppEntry *
-entry_new (const gchar *id,
-           const gchar *program)
+entry_new (const gchar *id, const gchar *program)
 {
   MockaAppEntry *entry = g_new0 (MockaAppEntry, 1);
 
@@ -66,8 +65,7 @@ test_name_is_id (void)
 {
   MockaAppEntry *inkscape = entry_new ("org.inkscape.Inkscape.desktop", "inkscape");
 
-  g_assert_true (mocka_recent_app_matches (inkscape, "org.inkscape.Inkscape",
-                                           "'org.inkscape.Inkscape %u'"));
+  g_assert_true (mocka_recent_app_matches (inkscape, "org.inkscape.Inkscape", "'org.inkscape.Inkscape %u'"));
   g_assert_true (mocka_recent_app_matches (inkscape, "org.inkscape.Inkscape", NULL));
 
   entry_free (inkscape);
@@ -89,8 +87,7 @@ test_invalid (void)
 }
 
 int
-main (int    argc,
-      char **argv)
+main (int argc, char **argv)
 {
   g_test_init (&argc, &argv, NULL);
 
