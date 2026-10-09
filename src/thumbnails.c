@@ -375,8 +375,9 @@ tile_new (MockaThumbnails *self, WnckWindow *window, gint width, gint height)
   GtkWidget *close = gtk_button_new_from_icon_name ("window-close-symbolic", GTK_ICON_SIZE_MENU);
 
   gtk_widget_set_size_request (preview, width, height);
-  set_preview (preview, window);
+  /* Watch first, so a change during the first capture is reported too. */
   watch_window (self, window, preview);
+  set_preview (preview, window);
 
   /* The title takes the preview's width and is shortened to fit it. */
   gtk_label_set_ellipsize (GTK_LABEL (label), PANGO_ELLIPSIZE_END);
@@ -434,26 +435,34 @@ button_monitor (MockaThumbnails *self, const GdkRectangle *button, GdkRectangle 
 }
 
 /*
- * Preview size for n windows: the full size, or smaller so all the tiles fit
- * in nine tenths of the monitor's length along the dock.
+ * Preview size for n windows, and how many tiles go on a line along the
+ * dock. All the tiles fit in nine tenths of the monitor's length, shrinking
+ * down to the minimum size; past that, they wrap onto more lines, so every
+ * window stays within reach.
  */
-static void
+static guint
 preview_size (MockaThumbnails *self, const GdkRectangle *monitor, guint n, gint *width, gint *height)
 {
+  gint length = is_horizontal (self) ? monitor->width : monitor->height;
+  gint min_tile = is_horizontal (self) ? MIN_PREVIEW_WIDTH + TILE_EXTRA_WIDTH
+                                       : MIN_PREVIEW_WIDTH * PREVIEW_HEIGHT / PREVIEW_WIDTH + TILE_EXTRA_HEIGHT;
+  gint per_line = MIN (MAX ((gint)n, 1), MAX (length * 9 / 10 / min_tile, 1));
   gint room;
 
   if (is_horizontal (self))
     {
-      room = monitor->width * 9 / 10 / MAX ((gint)n, 1) - TILE_EXTRA_WIDTH;
+      room = monitor->width * 9 / 10 / per_line - TILE_EXTRA_WIDTH;
       *width = CLAMP (room, MIN_PREVIEW_WIDTH, PREVIEW_WIDTH);
       *height = *width * PREVIEW_HEIGHT / PREVIEW_WIDTH;
     }
   else
     {
-      room = monitor->height * 9 / 10 / MAX ((gint)n, 1) - TILE_EXTRA_HEIGHT;
+      room = monitor->height * 9 / 10 / per_line - TILE_EXTRA_HEIGHT;
       *height = CLAMP (room, MIN_PREVIEW_WIDTH * PREVIEW_HEIGHT / PREVIEW_WIDTH, PREVIEW_HEIGHT);
       *width = *height * PREVIEW_WIDTH / PREVIEW_HEIGHT;
     }
+
+  return (guint)per_line;
 }
 
 /*
@@ -504,6 +513,7 @@ rebuild (MockaThumbnails *self)
   GPtrArray *windows;
   GList *l;
   gint width, height;
+  guint per_line;
   guint i;
 
   if (self->button == NULL || self->app == NULL || !mocka_dock_button_get_screen_rect (self->button, &button))
@@ -524,12 +534,20 @@ rebuild (MockaThumbnails *self)
     gtk_widget_destroy (l->data);
 
   button_monitor (self, &button, &monitor);
-  preview_size (self, &monitor, windows->len, &width, &height);
+  per_line = preview_size (self, &monitor, windows->len, &width, &height);
 
-  gtk_orientable_set_orientation (GTK_ORIENTABLE (self->box),
-                                  is_horizontal (self) ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL);
+  /* Lines run along the dock: rows on a horizontal panel, columns on a vertical one. */
   for (i = 0; i < windows->len; i++)
-    gtk_container_add (GTK_CONTAINER (self->box), tile_new (self, g_ptr_array_index (windows, i), width, height));
+    {
+      GtkWidget *tile = tile_new (self, g_ptr_array_index (windows, i), width, height);
+      gint along = (gint)(i % per_line);
+      gint across = (gint)(i / per_line);
+
+      if (is_horizontal (self))
+        gtk_grid_attach (GTK_GRID (self->box), tile, along, across, 1, 1);
+      else
+        gtk_grid_attach (GTK_GRID (self->box), tile, across, along, 1, 1);
+    }
   gtk_widget_show_all (self->box);
 
   place (self, &button, &monitor);
@@ -756,7 +774,9 @@ mocka_thumbnails_init (MockaThumbnails *self)
   g_signal_connect (self->popup, "enter-notify-event", G_CALLBACK (on_popup_enter), self);
   g_signal_connect (self->popup, "leave-notify-event", G_CALLBACK (on_popup_leave), self);
 
-  self->box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 4);
+  self->box = gtk_grid_new ();
+  gtk_grid_set_row_spacing (GTK_GRID (self->box), 4);
+  gtk_grid_set_column_spacing (GTK_GRID (self->box), 4);
   gtk_container_add (GTK_CONTAINER (self->popup), self->box);
 
   self->has_damage = XDamageQueryExtension (get_xdisplay (self), &self->damage_event_base, &damage_error_base);
