@@ -53,4 +53,11 @@ subdir('src')
 subdir('tests')
 subdir('po')
 
+# Lets testers who installed the package record the data a bug report needs.
+install_data('tools/collect-test-data.sh',
+  rename: 'mocka-dock-collect-test-data',
+  install_dir: get_option('bindir'),
+  install_mode: 'rwxr-xr-x',
+)
+
 gnome.post_install(glib_compile_schemas: true)
