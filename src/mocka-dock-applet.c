@@ -932,6 +932,8 @@ mocka_dock_applet_dispose (GObject *object)
   g_clear_object (&self->object_settings);
   g_clear_object (&self->settings);
   g_clear_object (&self->shared_settings);
+  if (self->tracker != NULL)
+    g_signal_handlers_disconnect_by_data (self->tracker, self);
   g_clear_object (&self->tracker);
   if (self->model != NULL)
     g_signal_handlers_disconnect_by_data (self->model, self);

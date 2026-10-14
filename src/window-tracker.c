@@ -556,7 +556,7 @@ mocka_window_tracker_init (MockaWindowTracker *self)
  */
 typedef struct
 {
-  MockaWindowTracker *self;
+  GWeakRef self;              /* the tracker, which may go before the process */
   GAppLaunchContext *context; /* NULL once the app is taken to be up */
   gchar *startup_id;
   GPid pid;
@@ -570,7 +570,7 @@ launch_process_free (gpointer data)
 
   g_clear_handle_id (&process->timeout_id, g_source_remove);
   g_clear_object (&process->context);
-  g_clear_object (&process->self);
+  g_weak_ref_clear (&process->self);
   g_free (process->startup_id);
   g_free (process);
 }
@@ -593,13 +593,15 @@ on_launch_process_exited (GPid pid, gint status, gpointer data)
 /* NOLINTEND(bugprone-easily-swappable-parameters) */
 {
   LaunchProcess *process = data;
+  g_autoptr (MockaWindowTracker) self = g_weak_ref_get (&process->self);
 
   if (process->context != NULL)
     {
       /* Tells everyone watching, the window manager included, and comes back
        * to us through the root window as a "remove" message. */
       g_app_launch_context_launch_failed (process->context, process->startup_id);
-      end_launch (process->self, process->startup_id);
+      if (self != NULL)
+        end_launch (self, process->startup_id);
     }
 
   g_spawn_close_pid (pid);
@@ -617,7 +619,7 @@ watch_launch_process (MockaWindowTracker *self, GAppLaunchContext *context, cons
     return;
 
   process = g_new0 (LaunchProcess, 1);
-  process->self = g_object_ref (self);
+  g_weak_ref_init (&process->self, self);
   process->context = g_object_ref (context);
   process->startup_id = g_strdup (startup_id);
   process->pid = (GPid)pid;
