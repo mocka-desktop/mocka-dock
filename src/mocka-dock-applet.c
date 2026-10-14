@@ -807,6 +807,19 @@ update_size_hints (MockaDockApplet *self)
 }
 
 /*
+ * Drops a settings object the applet has handlers on. GLib holds the object
+ * while a change notification for it is queued, so it can outlive the applet
+ * and emit "changed" once the applet is gone; the handlers have to go first.
+ */
+static void
+clear_settings (MockaDockApplet *self, GSettings **settings)
+{
+  if (*settings != NULL)
+    g_signal_handlers_disconnect_by_data (*settings, self);
+  g_clear_object (settings);
+}
+
+/*
  * Follows the settings of the panel the dock is on, which change when the
  * panel is expanded or the dock is moved to another panel. They belong to
  * mate-panel: the dock's object is the parent of its preferences path.
@@ -820,7 +833,7 @@ watch_panel (MockaDockApplet *self)
   g_autofree gchar *toplevel_path = NULL;
   gsize length;
 
-  g_clear_object (&self->toplevel_settings);
+  clear_settings (self, &self->toplevel_settings);
 
   if (self->object_settings == NULL)
     {
@@ -928,10 +941,10 @@ mocka_dock_applet_dispose (GObject *object)
 
   close_undo_popup (self);
   g_clear_object (&self->thumbnails);
-  g_clear_object (&self->toplevel_settings);
-  g_clear_object (&self->object_settings);
+  clear_settings (self, &self->toplevel_settings);
+  clear_settings (self, &self->object_settings);
   g_clear_object (&self->settings);
-  g_clear_object (&self->shared_settings);
+  clear_settings (self, &self->shared_settings);
   g_clear_object (&self->tracker);
   if (self->model != NULL)
     g_signal_handlers_disconnect_by_data (self->model, self);
