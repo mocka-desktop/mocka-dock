@@ -22,7 +22,7 @@ as a single row of buttons. Its interaction model follows the Windows taskbar:
 one button per application, window thumbnails on hover, and an
 application-focused right-click menu.
 
-Platform: X11, FreeBSD first. Wayland is out of scope.
+Platform: X11, FreeBSD first. Wayland support is on the table but not yet planned.
 
 ## 2. Terms
 
